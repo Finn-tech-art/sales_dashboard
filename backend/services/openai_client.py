@@ -68,3 +68,25 @@ class OpenAIClient:
             "Highlight wins, risks, and one recommendation."
         )
         return self._complete(prompt, max_tokens=500)
+
+    def generate_social_post(self, topic: str, platform: str, context: str = "") -> tuple[str, str, str]:
+        prompt = (
+            "Create a short-form social media post for Bizard Leads.\n"
+            f"Topic: {topic}\n"
+            f"Platform: {platform}\n"
+            f"Context: {context}\n"
+            "Return three sections labeled TITLE:, CAPTION:, and CONTENT:."
+        )
+        content = self._complete(prompt, max_tokens=350)
+        title = f"{platform.title()} post"
+        caption = topic
+        body = content
+        for line in content.splitlines():
+            clean = line.strip()
+            if clean.upper().startswith("TITLE:"):
+                title = clean.split(":", 1)[1].strip() or title
+            elif clean.upper().startswith("CAPTION:"):
+                caption = clean.split(":", 1)[1].strip() or caption
+            elif clean.upper().startswith("CONTENT:"):
+                body = clean.split(":", 1)[1].strip() or body
+        return title, caption, body

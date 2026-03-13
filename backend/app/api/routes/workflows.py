@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.dependencies import get_current_user
 from backend.app.database import get_db
+from backend.domains.social.workers.analytics import collect_social_analytics_task
+from backend.domains.social.workers.content_pipeline import create_social_post_task, publish_social_post_task
+from backend.domains.social.workers.trends import discover_social_trends_task
 from backend.models.user import User
 from backend.models.workflow_run import WorkflowRun
 from backend.workers.lead_sourcing import source_leads_task
@@ -18,6 +21,8 @@ WORKFLOW_TASKS = {
     "lead-sourcing": source_leads_task,
     "weekly-report": generate_weekly_report_task,
     "support-followup": support_followup_task,
+    "social-trends": discover_social_trends_task,
+    "social-analytics": collect_social_analytics_task,
 }
 
 
@@ -34,6 +39,7 @@ def list_workflows(current_user: User = Depends(get_current_user), db: Session =
         "recent_runs": [
             {
                 "id": run.id,
+                "domain": run.domain,
                 "workflow_name": run.workflow_name,
                 "status": run.status,
                 "started_at": run.started_at.isoformat(),

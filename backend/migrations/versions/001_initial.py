@@ -94,6 +94,7 @@ def upgrade() -> None:
         "workflow_runs",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=True),
+        sa.Column("domain", sa.String(length=50), nullable=False),
         sa.Column("workflow_name", sa.String(length=100), nullable=False),
         sa.Column("trigger_source", sa.String(length=100), nullable=False),
         sa.Column("status", sa.String(length=50), nullable=False),
@@ -103,9 +104,44 @@ def upgrade() -> None:
         sa.Column("completed_at", sa.DateTime(), nullable=True),
     )
 
+    op.create_table(
+        "social_trends",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=True),
+        sa.Column("platform", sa.String(length=50), nullable=False),
+        sa.Column("keyword", sa.String(length=255), nullable=False),
+        sa.Column("summary", sa.Text(), nullable=True),
+        sa.Column("score", sa.Float(), nullable=False),
+        sa.Column("source", sa.String(length=100), nullable=False),
+        sa.Column("status", sa.String(length=50), nullable=False),
+        sa.Column("payload", sa.Text(), nullable=True),
+        sa.Column("discovered_at", sa.DateTime(), nullable=False),
+    )
+
+    op.create_table(
+        "social_posts",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=True),
+        sa.Column("trend_id", sa.Integer(), sa.ForeignKey("social_trends.id"), nullable=True),
+        sa.Column("platform", sa.String(length=50), nullable=False),
+        sa.Column("title", sa.String(length=255), nullable=True),
+        sa.Column("caption", sa.Text(), nullable=True),
+        sa.Column("content", sa.Text(), nullable=True),
+        sa.Column("approval_status", sa.String(length=50), nullable=False),
+        sa.Column("publish_status", sa.String(length=50), nullable=False),
+        sa.Column("external_post_id", sa.String(length=255), nullable=True),
+        sa.Column("metrics_json", sa.Text(), nullable=True),
+        sa.Column("scheduled_for", sa.DateTime(), nullable=True),
+        sa.Column("published_at", sa.DateTime(), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
+    )
+
 
 def downgrade() -> None:
     op.drop_table("workflow_runs")
+    op.drop_table("social_posts")
+    op.drop_table("social_trends")
     op.drop_table("support_logs")
     op.drop_table("outreach_logs")
     op.drop_table("leads")

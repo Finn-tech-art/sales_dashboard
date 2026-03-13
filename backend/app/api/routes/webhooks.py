@@ -4,7 +4,7 @@ import hmac
 from fastapi import APIRouter, Header, HTTPException, Request, status
 
 from backend.app.config import get_settings
-from backend.services.outreach import process_hubspot_webhook
+from backend.domains.leads.services.outreach_service import process_hubspot_webhook
 from backend.workers.support import process_chatwoot_webhook
 
 

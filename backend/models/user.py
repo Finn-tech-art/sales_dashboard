@@ -26,4 +26,6 @@ class User(Base):
 
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
     leads = relationship("Lead", back_populates="user")
+    social_trends = relationship("SocialTrend", back_populates="user")
+    social_posts = relationship("SocialPost", back_populates="user")
     workflow_runs = relationship("WorkflowRun", back_populates="user")

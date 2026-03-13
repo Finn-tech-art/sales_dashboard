@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     )
     REDIS_URL: str = "redis://localhost:6379/0"
     TASKS_ALWAYS_EAGER: bool = True
+    CACHE_DEFAULT_TTL_SECONDS: int = 120
+    CACHE_TRENDS_TTL_SECONDS: int = 900
+    RATE_LIMIT_CAPACITY: int = 60
+    RATE_LIMIT_REFILL_RATE: float = 1.0
 
     JWT_SECRET: str = "change-me"
     JWT_ALGORITHM: str = "HS256"
@@ -49,10 +53,15 @@ class Settings(BaseSettings):
     N8N_WEBHOOK_BASE: str = "http://localhost:5678/webhook"
     LEAD_DISCOVERY_WEBHOOK_PATH: str = "lead-discovery"
     MAILMETEOR_WEBHOOK_PATH: str = "mailmeteor/send"
+    SOCIAL_TRENDS_WEBHOOK_PATH: str = "social/trends"
+    SOCIAL_PUBLISH_WEBHOOK_PATH: str = "social/publish"
+    SOCIAL_ANALYTICS_WEBHOOK_PATH: str = "social/analytics"
 
     EMAIL_FROM: str = "noreply@bizardleads.local"
     REPORT_RECIPIENT_EMAIL: str = "founder@bizardleads.local"
     DEFAULT_LEAD_QUERY: str = "small business owner"
+    SOCIAL_DEFAULT_TOPIC: str = "small business marketing"
+    SOCIAL_DEFAULT_PLATFORMS: list[str] = Field(default_factory=lambda: ["tiktok", "instagram", "facebook", "youtube"])
 
     @property
     def sqlalchemy_database_uri(self) -> str:

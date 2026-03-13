@@ -17,6 +17,9 @@ celery_app = Celery(
         "backend.workers.outreach",
         "backend.workers.support",
         "backend.workers.reporting",
+        "backend.domains.social.workers.trends",
+        "backend.domains.social.workers.content_pipeline",
+        "backend.domains.social.workers.analytics",
     ],
 )
 
@@ -40,5 +43,13 @@ celery_app.conf.beat_schedule = {
     "weekly-report": {
         "task": "backend.workers.reporting.generate_weekly_report",
         "schedule": crontab(day_of_week="mon", hour=9, minute=0),
+    },
+    "social-trend-discovery": {
+        "task": "backend.domains.social.workers.trends.discover_social_trends",
+        "schedule": crontab(day_of_week="mon", hour=7, minute=30),
+    },
+    "social-analytics": {
+        "task": "backend.domains.social.workers.analytics.collect_social_analytics",
+        "schedule": crontab(hour="*/6", minute=0),
     },
 }

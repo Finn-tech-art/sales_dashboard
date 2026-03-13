@@ -4,11 +4,11 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.dependencies import get_current_user
 from backend.app.database import get_db
+from backend.domains.leads.services.outreach_service import send_outreach_for_lead
 from backend.models.lead import Lead
 from backend.models.outreach_logs import OutreachLog
 from backend.models.user import User
 from backend.schemas.outreach import OutreachLogRead, OutreachTriggerRequest
-from backend.services.outreach import send_outreach_for_lead
 
 
 router = APIRouter(prefix="/outreach", tags=["outreach"])

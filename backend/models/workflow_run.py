@@ -11,6 +11,7 @@ class WorkflowRun(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
+    domain: Mapped[str] = mapped_column(String(50), default="shared", nullable=False)
     workflow_name: Mapped[str] = mapped_column(String(100), nullable=False)
     trigger_source: Mapped[str] = mapped_column(String(100), default="system", nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False)

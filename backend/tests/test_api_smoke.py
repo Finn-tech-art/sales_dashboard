@@ -35,3 +35,4 @@ def test_health_and_dashboard_routes_mount() -> None:
 
     assert client.get("/health").status_code == 200
     assert client.get("/api/dashboard/").status_code == 200
+    assert client.get("/api/social/dashboard").status_code == 200

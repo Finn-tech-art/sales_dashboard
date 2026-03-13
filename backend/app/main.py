@@ -3,8 +3,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.api import auth, dashboard, leads, outreach, reports, webhooks, workflows
+from backend.app.api import auth, dashboard, leads, outreach, reports, social, webhooks, workflows
 from backend.app.config import get_settings
+from backend.app.core.rate_limit import RateLimitMiddleware
 from backend.app.database import check_database_connection, init_db
 
 
@@ -24,6 +25,7 @@ async def lifespan(_app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.APP_NAME, version="1.0.0", lifespan=lifespan)
+    app.add_middleware(RateLimitMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
@@ -37,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(leads, prefix=settings.API_PREFIX)
     app.include_router(outreach, prefix=settings.API_PREFIX)
     app.include_router(reports, prefix=settings.API_PREFIX)
+    app.include_router(social, prefix=settings.API_PREFIX)
     app.include_router(workflows, prefix=settings.API_PREFIX)
     app.include_router(webhooks, prefix=settings.API_PREFIX)
 

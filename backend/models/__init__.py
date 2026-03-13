@@ -5,4 +5,8 @@ Base = declarative_base()
 
 
 def import_models() -> None:
-    from backend.models import lead, outreach_logs, session, support_logs, user, workflow_run  # noqa: F401
+    from backend.domains.leads.models import lead as domain_lead  # noqa: F401
+    from backend.domains.leads.models import outreach_log as domain_outreach_log  # noqa: F401
+    from backend.domains.leads.models import support_log as domain_support_log  # noqa: F401
+    from backend.domains.social.models import social_post, social_trend  # noqa: F401
+    from backend.models import session, user, workflow_run  # noqa: F401
