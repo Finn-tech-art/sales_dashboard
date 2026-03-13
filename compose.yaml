@@ -1,8 +1,33 @@
 services:
-  aileaddashboard:
-    image: aileaddashboard
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-    ports:
-      - 8000:8000
+  api:
+    extends:
+      file: docker-compose.yml
+      service: api
+  celery-worker:
+    extends:
+      file: docker-compose.yml
+      service: celery-worker
+  celery-beat:
+    extends:
+      file: docker-compose.yml
+      service: celery-beat
+  postgres:
+    extends:
+      file: docker-compose.yml
+      service: postgres
+  redis:
+    extends:
+      file: docker-compose.yml
+      service: redis
+  n8n:
+    extends:
+      file: docker-compose.yml
+      service: n8n
+  nginx:
+    extends:
+      file: docker-compose.yml
+      service: nginx
+
+volumes:
+  postgres_data:
+  n8n_data:

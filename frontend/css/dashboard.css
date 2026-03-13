@@ -1,0 +1,33 @@
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.metric-card strong {
+  font-size: 2rem;
+  display: block;
+  margin-top: 8px;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 18px;
+}
+
+.timeline-item {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.timeline-item:last-child {
+  border-bottom: 0;
+}
+
+@media (max-width: 960px) {
+  .metric-grid,
+  .split {
+    grid-template-columns: 1fr;
+  }
+}

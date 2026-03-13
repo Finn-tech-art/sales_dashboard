@@ -1,17 +1,11 @@
 # --- Python Backend ---
+.venv/
 backend/.venv/
+.tmp-python/
+.pytest_cache/
 **/__pycache__/
 *.py[cod]
 .env
 backend/.env
-
-
-
-.DS_Store
-Thumbs.db
-
-# --- Tools & Docker ---
 .vscode/
-*.log
-docker-compose.override.yml
-.dockerignore
+docs/
