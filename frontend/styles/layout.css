@@ -1,0 +1,80 @@
+.crm-dashboard {
+  animation: crmFadeIn 220ms ease-out;
+}
+
+.crm-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 24px;
+}
+
+.crm-main {
+  display: grid;
+  gap: 24px;
+}
+
+.crm-sidebar-panel {
+  display: grid;
+  gap: 24px;
+}
+
+.crm-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.crm-chart-grid--full {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.crm-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.crm-top-icon-button,
+.crm-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.crm-top-icon-button svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.crm-avatar {
+  background: linear-gradient(135deg, var(--primary-blue), var(--accent-blue));
+  color: #ffffff;
+  font-weight: 700;
+}
+
+@keyframes crmFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1100px) {
+  .crm-grid,
+  .crm-chart-grid {
+    grid-template-columns: 1fr;
+  }
+}

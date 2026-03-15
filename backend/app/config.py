@@ -12,7 +12,7 @@ DEFAULT_SQLITE_URL = f"sqlite:///{(BACKEND_DIR / 'bizard_leads.db').as_posix()}"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(REPO_ROOT / ".env", BACKEND_DIR / ".env", BACKEND_DIR / ".env.local"),
+        env_file=(BACKEND_DIR / ".env", REPO_ROOT / ".env", BACKEND_DIR / ".env.local"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     )
     REDIS_URL: str = "redis://localhost:6379/0"
     TASKS_ALWAYS_EAGER: bool = True
+    HUBSPOT_CONTACT_SYNC_MINUTES: int = 5
+    HUBSPOT_DEAL_SYNC_MINUTES: int = 5
+    HUBSPOT_COMPANY_SYNC_MINUTES: int = 15
     CACHE_DEFAULT_TTL_SECONDS: int = 120
     CACHE_TRENDS_TTL_SECONDS: int = 900
     RATE_LIMIT_CAPACITY: int = 60
@@ -38,7 +41,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_WORKFLOWS: str = "20/minute"
     RATE_LIMIT_WEBHOOKS: str = "30/minute"
 
-    JWT_SECRET: str = "change-me"
+    JWT_SECRET: str = Field(
+        default="change-me",
+        validation_alias=AliasChoices("JWT_SECRET", "SECRET_KEY"),
+    )
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRES_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRES_DAYS: int = 30
@@ -49,8 +55,14 @@ class Settings(BaseSettings):
 
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
-    HUBSPOT_API_KEY: str = ""
-    HUBSPOT_WEBHOOK_SECRET: str = ""
+    HUBSPOT_ACCESS_TOKEN: str = Field(
+        default="",
+        validation_alias=AliasChoices("HUBSPOT_ACCESS_TOKEN", "HUBSPOT_API_KEY", "HUBSPOT_PRIVATE_APP_TOKEN"),
+    )
+    HUBSPOT_CLIENT_SECRET: str = Field(
+        default="",
+        validation_alias=AliasChoices("HUBSPOT_CLIENT_SECRET", "HUBSPOT_WEBHOOK_SECRET"),
+    )
     CHATWOOT_API_KEY: str = ""
     MAILTRAP_HOST: str = ""
     MAILTRAP_PORT: int = 2525

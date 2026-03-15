@@ -17,6 +17,9 @@ celery_app = Celery(
         "backend.workers.outreach",
         "backend.workers.support",
         "backend.workers.reporting",
+        "backend.workers.webhook_dispatcher",
+        "backend.workers.hubspot_sync_contacts",
+        "backend.workers.hubspot_sync_deals",
         "backend.domains.social.workers.trends",
         "backend.domains.social.workers.content_pipeline",
         "backend.domains.social.workers.analytics",
@@ -51,5 +54,17 @@ celery_app.conf.beat_schedule = {
     "social-analytics": {
         "task": "backend.domains.social.workers.analytics.collect_social_analytics",
         "schedule": crontab(hour="*/6", minute=0),
+    },
+    "hubspot-contact-sync": {
+        "task": "backend.workers.hubspot_sync_contacts.sync_contacts",
+        "schedule": crontab(minute=f"*/{settings.HUBSPOT_CONTACT_SYNC_MINUTES}"),
+    },
+    "hubspot-deal-sync": {
+        "task": "backend.workers.hubspot_sync_deals.sync_deals",
+        "schedule": crontab(minute=f"*/{settings.HUBSPOT_DEAL_SYNC_MINUTES}"),
+    },
+    "hubspot-company-sync": {
+        "task": "backend.workers.hubspot_sync_deals.sync_companies",
+        "schedule": crontab(minute=f"*/{settings.HUBSPOT_COMPANY_SYNC_MINUTES}"),
     },
 }

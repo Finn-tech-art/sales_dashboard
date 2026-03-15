@@ -8,7 +8,9 @@ from backend.app.config import get_settings
 
 
 settings = get_settings()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Use PBKDF2-SHA256 for new passwords to avoid bcrypt's 72-byte cap while
+# keeping a strong, widely supported KDF in the standard passlib set.
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

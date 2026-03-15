@@ -1,0 +1,13 @@
+:root {
+  --crm-sidebar-bg: #0f172a;
+  --crm-sidebar-text: #f8fafc;
+  --crm-sidebar-active: rgba(59, 130, 246, 0.18);
+  --crm-highlight: rgba(37, 99, 235, 0.12);
+}
+
+[data-theme="dark"] {
+  --crm-sidebar-bg: #020617;
+  --crm-sidebar-text: #f8fafc;
+  --crm-sidebar-active: rgba(59, 130, 246, 0.24);
+  --crm-highlight: rgba(59, 130, 246, 0.18);
+}

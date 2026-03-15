@@ -1,0 +1,176 @@
+.crm-dashboard-shell .sidebar {
+  background: var(--crm-sidebar-bg);
+  color: var(--crm-sidebar-text);
+}
+
+.crm-dashboard-shell .sidebar .brand,
+.crm-dashboard-shell .sidebar p,
+.crm-dashboard-shell .sidebar .nav-link {
+  color: var(--crm-sidebar-text);
+}
+
+.crm-dashboard-shell .nav-link.active,
+.crm-dashboard-shell .nav-link:hover {
+  background: var(--crm-sidebar-active);
+}
+
+.crm-dashboard-shell .top-navigation {
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+}
+
+.crm-dashboard .metric-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.crm-dashboard .metric-card {
+  min-height: 220px;
+  transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+}
+
+.crm-dashboard .metric-card:hover,
+.crm-dashboard .crm-panel:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.crm-dashboard .metric-card .metric-sparkline {
+  margin-top: 16px;
+}
+
+.crm-dashboard .crm-panel {
+  transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+}
+
+.crm-dashboard .crm-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.crm-dashboard .crm-panel-subtitle {
+  color: var(--text-soft);
+  margin-top: 6px;
+}
+
+.crm-dashboard .crm-chart-card {
+  min-height: 340px;
+}
+
+.crm-dashboard .crm-chart-shell {
+  position: relative;
+  min-height: 260px;
+}
+
+.crm-dashboard .crm-chart-skeleton {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  gap: 12px;
+  align-content: end;
+}
+
+.crm-dashboard .crm-chart-skeleton span {
+  display: block;
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.08), rgba(59, 130, 246, 0.18), rgba(37, 99, 235, 0.08));
+  background-size: 200% 100%;
+  animation: crmShimmer 1.4s linear infinite;
+}
+
+.crm-dashboard .crm-chart-skeleton span:nth-child(1) { width: 88%; }
+.crm-dashboard .crm-chart-skeleton span:nth-child(2) { width: 74%; }
+.crm-dashboard .crm-chart-skeleton span:nth-child(3) { width: 92%; }
+.crm-dashboard .crm-chart-skeleton span:nth-child(4) { width: 68%; }
+
+.crm-dashboard .crm-chart-shell canvas {
+  width: 100% !important;
+  max-height: 260px;
+}
+
+.crm-dashboard .crm-lead-list,
+.crm-dashboard .crm-task-list {
+  display: grid;
+  gap: 14px;
+}
+
+.crm-dashboard .crm-lead-item,
+.crm-dashboard .crm-task-item {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-muted) 84%, transparent);
+}
+
+.crm-dashboard .crm-lead-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.crm-dashboard .crm-avatar-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary-blue), var(--accent-blue));
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.crm-dashboard .crm-task-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--crm-highlight);
+  color: var(--primary-blue);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.crm-dashboard .crm-sales-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.crm-dashboard .crm-demo-banner {
+  margin-bottom: 24px;
+  border: 1px solid color-mix(in srgb, var(--primary-blue) 24%, var(--border));
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.14), transparent 38%),
+    linear-gradient(135deg, color-mix(in srgb, var(--surface) 88%, rgba(37, 99, 235, 0.08)), var(--surface));
+}
+
+.crm-dashboard .crm-demo-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.crm-dashboard .crm-summary-tile {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-muted) 82%, transparent);
+}
+
+@keyframes crmShimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (max-width: 900px) {
+  .crm-dashboard .metric-grid,
+  .crm-dashboard .crm-sales-summary {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,332 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+:root {
+  color-scheme: light;
+  --primary-blue: #2563eb;
+  --accent-blue: #3b82f6;
+  --background: #ffffff;
+  --background-soft: #f8fafc;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --surface-strong: #eef4ff;
+  --text: #0f172a;
+  --text-muted: #475569;
+  --text-soft: #64748b;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --shadow-sm: 0 10px 30px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 18px 45px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 28px 80px rgba(15, 23, 42, 0.12);
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --info: #2563eb;
+  --radius-xs: 10px;
+  --radius-sm: 14px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --transition-fast: 150ms ease-out;
+  --transition-base: 220ms ease-out;
+  --page-max: 1280px;
+  --loader-accent: #00ffff;
+  --loader-highlight: #facc15;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0f172a;
+  --background-soft: #020617;
+  --surface: #111c32;
+  --surface-muted: #1e293b;
+  --surface-strong: #172554;
+  --text: #f8fafc;
+  --text-muted: #cbd5e1;
+  --text-soft: #94a3b8;
+  --border: #334155;
+  --border-strong: #475569;
+  --shadow-sm: 0 12px 32px rgba(2, 6, 23, 0.25);
+  --shadow-md: 0 22px 54px rgba(2, 6, 23, 0.34);
+  --shadow-lg: 0 32px 90px rgba(2, 6, 23, 0.42);
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 26%),
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 20%),
+    linear-gradient(180deg, var(--background-soft) 0%, var(--background) 24%, var(--background) 100%);
+  color: var(--text);
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.18), transparent 80%);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--text);
+  letter-spacing: -0.03em;
+  text-transform: capitalize;
+}
+
+h1 {
+  font-size: 2.25rem;
+  line-height: 1.1;
+}
+
+h2 {
+  font-size: 1.75rem;
+  line-height: 1.15;
+}
+
+h3 {
+  font-size: 1.375rem;
+  line-height: 1.2;
+}
+
+h4 {
+  font-size: 1.125rem;
+  line-height: 1.3;
+}
+
+p,
+li,
+td,
+input,
+textarea,
+select,
+button {
+  font-size: 0.95rem;
+}
+
+p {
+  color: var(--text-muted);
+}
+
+code {
+  padding: 0.18rem 0.38rem;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--primary-blue);
+}
+
+.app-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(14px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-base), visibility var(--transition-base);
+}
+
+.app-loader.is-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.app-loader-panel {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+.app-loader-copy {
+  text-align: center;
+}
+
+.app-loader-copy strong,
+.app-loader-copy span {
+  display: block;
+  text-transform: capitalize;
+}
+
+.app-loader-copy strong {
+  margin-bottom: var(--space-1);
+}
+
+.app-loader-copy span {
+  color: var(--text-soft);
+}
+
+.svg-frame {
+  position: relative;
+  width: 300px;
+  height: 300px;
+  transform-style: preserve-3d;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.svg-frame svg {
+  position: absolute;
+  transition: 0.5s;
+  z-index: calc(1 - (0.2 * var(--j)));
+  transform-origin: center;
+  width: 344px;
+  height: 344px;
+  fill: none;
+}
+
+.app-loader.is-visible .svg-frame svg {
+  transform: rotate(-80deg) skew(30deg) translateX(calc(45px * var(--i))) translateY(calc(-35px * var(--i)));
+}
+
+.svg-frame svg #center {
+  transition: 0.5s;
+  transform-origin: center;
+}
+
+.app-loader.is-visible .svg-frame svg #center {
+  transform: rotate(-30deg) translateX(45px) translateY(-3px);
+}
+
+#out2,
+#out3,
+#inner3,
+#inner1,
+#center1 {
+  transform-origin: center;
+}
+
+#out2 {
+  animation: loaderRotate 7s ease-in-out infinite alternate;
+}
+
+#out3 {
+  animation: loaderRotate 3s ease-in-out infinite alternate;
+  stroke: var(--loader-highlight);
+}
+
+#inner3,
+#inner1 {
+  animation: loaderRotate 4s ease-in-out infinite alternate;
+}
+
+#center1 {
+  fill: var(--loader-highlight);
+  animation: loaderRotate 2s ease-in-out infinite alternate;
+}
+
+.svg-frame path,
+.svg-frame g {
+  stroke: var(--loader-accent);
+}
+
+@keyframes loaderRotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.toast-stack {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  z-index: 1300;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.toast {
+  min-width: 280px;
+  max-width: 380px;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+  animation: toastIn var(--transition-base);
+}
+
+.toast[data-variant="success"] {
+  border-color: color-mix(in srgb, var(--success) 45%, var(--border));
+}
+
+.toast[data-variant="error"] {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
+.toast[data-variant="info"] {
+  border-color: color-mix(in srgb, var(--primary-blue) 45%, var(--border));
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.surface-ring {
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: var(--shadow-sm);
+}
+
+.muted-copy,
+.subtle {
+  color: var(--text-soft);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+@media (max-width: 960px) {
+  .toast-stack {
+    right: var(--space-4);
+    left: var(--space-4);
+    bottom: var(--space-4);
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+}

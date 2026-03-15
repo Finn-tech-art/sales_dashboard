@@ -10,9 +10,11 @@
 **/.toolstarget
 **/.vs
 **/.vscode
+**/.tmp-python
 **/*.*proj.user
 **/*.dbmdl
 **/*.jfm
+**/pytest-cache-files-*
 **/bin
 **/charts
 **/docker-compose*

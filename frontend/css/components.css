@@ -1,53 +1,71 @@
 .card {
-  background: linear-gradient(180deg, rgba(16, 32, 42, 0.96), rgba(12, 24, 31, 0.92));
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 20px;
-  box-shadow: var(--shadow);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
 }
 
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(60, 193, 199, 0.12);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--accent-blue) 12%, transparent);
+  color: var(--primary-blue);
   font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: capitalize;
 }
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 12px 18px;
-  border-radius: 14px;
-  border: 0;
+  gap: var(--space-2);
+  padding: 11px 16px;
+  border-radius: 12px;
+  border: 1px solid transparent;
   cursor: pointer;
-  transition: 0.2s ease;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.btn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  flex: none;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #041016;
-  font-weight: 700;
+  background: linear-gradient(135deg, var(--primary-blue), var(--accent-blue));
+  color: #ffffff;
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.18);
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text);
-  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--primary-blue);
+  border-color: color-mix(in srgb, var(--primary-blue) 22%, var(--border));
+}
+
+.btn-danger {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
 }
 
 .btn:hover {
   transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .stat {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .stat strong {
@@ -55,18 +73,41 @@
 }
 
 .label {
-  color: var(--muted);
+  color: var(--text-soft);
   font-size: 0.9rem;
+  text-transform: capitalize;
 }
 
 .form {
   display: grid;
-  gap: 14px;
+  gap: var(--space-4);
 }
 
 .field {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
+}
+
+.floating-field {
+  position: relative;
+}
+
+.floating-field input,
+.floating-field textarea,
+.floating-field select {
+  padding-top: 20px;
+  padding-bottom: 12px;
+}
+
+.floating-field label {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  color: var(--text-soft);
+  font-size: 0.84rem;
+  pointer-events: none;
+  transition: transform var(--transition-fast), color var(--transition-fast);
+  text-transform: capitalize;
 }
 
 .field input,
@@ -75,9 +116,24 @@
   width: 100%;
   padding: 13px 14px;
   border-radius: 14px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  background: var(--surface);
   color: var(--text);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--primary-blue) 55%, var(--border));
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.floating-field input:focus + label,
+.floating-field textarea:focus + label,
+.floating-field select:focus + label {
+  color: var(--primary-blue);
 }
 
 .table {
@@ -88,31 +144,34 @@
 .table th,
 .table td {
   text-align: left;
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--line);
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
 }
 
 .table th {
-  color: var(--muted);
+  color: var(--text-soft);
   font-weight: 600;
+  text-transform: capitalize;
 }
 
 .stack {
   display: grid;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .empty {
-  padding: 18px;
-  border: 1px dashed var(--line);
+  padding: var(--space-5);
+  border: 1px dashed var(--border-strong);
   border-radius: 16px;
-  color: var(--muted);
+  color: var(--text-soft);
+  text-transform: capitalize;
 }
 
 .hero {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  gap: 28px;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: var(--space-6);
   align-items: center;
   padding: 70px 0;
 }
@@ -127,14 +186,15 @@
 
 .hero-list {
   display: grid;
-  gap: 12px;
-  margin-top: 24px;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
 }
 
 .hero-list div {
   padding: 14px 16px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--surface-muted) 88%, transparent);
+  border: 1px solid var(--border);
 }
 
 .cta-row {
@@ -144,8 +204,80 @@
   margin-top: 24px;
 }
 
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-between;
+  align-items: center;
+}
+
+.toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.data-table-shell {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.trend-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--success);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.checkbox-item input {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary-blue);
+}
+
 @media (max-width: 960px) {
   .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .checkbox-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.api import auth, dashboard, leads, outreach, reports, social, webhooks, workflows
+from backend.app.api import auth, dashboard, hubspot, leads, outreach, reports, social, webhooks, workflows
 from backend.app.config import get_settings
 from backend.app.core.rate_limit import RateLimitExceeded, SlowAPIMiddleware, limiter, rate_limit_exceeded_handler
 from backend.app.database import check_database_connection, init_db
@@ -38,6 +38,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth, prefix=settings.API_PREFIX)
     app.include_router(dashboard, prefix=settings.API_PREFIX)
+    app.include_router(hubspot, prefix=settings.API_PREFIX)
     app.include_router(leads, prefix=settings.API_PREFIX)
     app.include_router(outreach, prefix=settings.API_PREFIX)
     app.include_router(reports, prefix=settings.API_PREFIX)

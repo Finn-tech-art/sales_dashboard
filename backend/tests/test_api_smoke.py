@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from backend.app.api.routes import hubspot as hubspot_routes
 from backend.app.core.dependencies import get_current_user
 from backend.app.database import get_db
 from backend.app.main import create_app
@@ -9,7 +10,7 @@ from backend.models import Base
 from backend.models.user import User
 
 
-def test_health_and_dashboard_routes_mount() -> None:
+def test_health_and_dashboard_routes_mount(monkeypatch) -> None:
     engine = create_engine("sqlite:///:memory:", future=True, connect_args={"check_same_thread": False})
     TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     Base.metadata.create_all(engine)
@@ -30,9 +31,27 @@ def test_health_and_dashboard_routes_mount() -> None:
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = lambda: user
+    monkeypatch.setattr(hubspot_routes, "get_hubspot_metrics_payload", lambda user_id=None: {"cards": []})
+    monkeypatch.setattr(
+        hubspot_routes,
+        "get_hubspot_leads_payload",
+        lambda user_id=None, limit=8: {"items": [], "status_breakdown": {"New": 0, "Contacted": 0, "Qualified": 0, "Closed": 0}},
+    )
+    monkeypatch.setattr(
+        hubspot_routes,
+        "get_hubspot_opportunities_payload",
+        lambda user_id=None: {"labels": [], "closed_won": [], "closed_lost": []},
+    )
+    monkeypatch.setattr(hubspot_routes, "get_hubspot_sales_payload", lambda user_id=None: {"labels": [], "revenue": []})
+    monkeypatch.setattr(hubspot_routes, "get_hubspot_tasks_payload", lambda user_id=None: {"items": []})
 
     client = TestClient(app)
 
     assert client.get("/health").status_code == 200
     assert client.get("/api/dashboard/").status_code == 200
+    assert client.get("/api/hubspot/metrics").status_code == 200
+    assert client.get("/api/hubspot/leads").status_code == 200
+    assert client.get("/api/hubspot/opportunities").status_code == 200
+    assert client.get("/api/hubspot/sales").status_code == 200
+    assert client.get("/api/hubspot/tasks").status_code == 200
     assert client.get("/api/social/dashboard").status_code == 200

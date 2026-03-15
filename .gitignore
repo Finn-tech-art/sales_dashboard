@@ -7,5 +7,9 @@ backend/.venv/
 *.py[cod]
 .env
 backend/.env
+backend/bizard_leads.db
 .vscode/
 docs/
+celerybeat-schedule
+celerybeat.pid
+celery.log

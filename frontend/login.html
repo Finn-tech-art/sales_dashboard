@@ -4,23 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Log In | Bizard Leads</title>
-  <link rel="stylesheet" href="/css/base.css" />
-  <link rel="stylesheet" href="/css/layout.css" />
-  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/base.css?v=20260319" />
+  <link rel="stylesheet" href="/css/layout.css?v=20260319" />
+  <link rel="stylesheet" href="/css/components.css?v=20260319" />
+  <link rel="stylesheet" href="/styles/design-system.css?v=20260319" />
 </head>
 <body>
-  <script src="/js/api.js"></script>
-  <script src="/js/layout.js"></script>
+  <script src="/js/api.js?v=20260319"></script>
+  <script src="/js/layout.js?v=20260319"></script>
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       renderAuthShell({
-        title: "Log in",
-        subtitle: "Return to your lead and workflow dashboard.",
+        title: "Log In",
+        subtitle: "Return To Your Lead Automation And Social Content Workspace.",
         content: `
           <form class="form" id="login-form">
-            <div class="field"><label>Email</label><input name="email" type="email" required /></div>
-            <div class="field"><label>Password</label><input name="password" type="password" required /></div>
-            <button class="btn btn-primary" type="submit">Access workspace</button>
+            <div class="field floating-field"><input name="email" type="email" placeholder=" " required /><label>Email Address</label></div>
+            <div class="field floating-field"><input name="password" type="password" placeholder=" " required /><label>Password</label></div>
+            <button class="btn btn-primary" type="submit">Access Workspace</button>
             <div id="login-error" class="label"></div>
           </form>
         `,
@@ -28,13 +29,16 @@
 
       document.getElementById("login-form").addEventListener("submit", async (event) => {
         event.preventDefault();
+        const errorBanner = document.getElementById("login-error");
         try {
           const payload = Object.fromEntries(new FormData(event.target).entries());
-          const result = await apiFetch("/auth/login", { method: "POST", body: JSON.stringify(payload) });
+          const result = await apiFetch("/auth/login", { method: "POST", body: JSON.stringify(payload), loaderTitle: "Signing In", loaderSubtitle: "Opening Your Command Center" });
           setTokens(result.access_token, result.refresh_token);
+          showToast("Login Successful");
           window.location.href = "/dashboard.html";
         } catch (error) {
-          document.getElementById("login-error").textContent = "Unable to log in with those credentials.";
+          errorBanner.textContent = error.message || "Unable to log in with those credentials.";
+          showToast(errorBanner.textContent, "error");
         }
       });
     });

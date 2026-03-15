@@ -82,22 +82,24 @@ def run_lead_pipeline(db: Session, query: str, user_id: int | None = None, limit
             if batch_to_store:
                 db.add_all(batch_to_store)
                 db.commit()
+                hubspot_payloads: list[dict] = []
                 for lead in batch_to_store:
                     db.refresh(lead)
                     created_leads.append(lead)
                     records_created += 1
-
-                for lead in batch_to_store:
-                    hubspot.create_or_update_contact(
-                        {
-                            "email": lead.email,
-                            "firstname": lead.first_name,
-                            "lastname": lead.last_name,
-                            "company": lead.company,
-                            "website": lead.company_domain,
-                            "jobtitle": lead.title,
-                        }
-                    )
+                    if lead.email:
+                        hubspot_payloads.append(
+                            {
+                                "email": lead.email,
+                                "firstname": lead.first_name,
+                                "lastname": lead.last_name,
+                                "company": lead.company,
+                                "website": lead.company_domain,
+                                "jobtitle": lead.title,
+                            }
+                        )
+                if hubspot_payloads:
+                    hubspot.batch_upsert_contacts(hubspot_payloads)
 
         workflow_run.status = "completed"
         workflow_run.records_processed = records_processed

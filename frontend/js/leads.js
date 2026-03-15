@@ -1,64 +1,225 @@
 requireAuth();
 
-document.addEventListener("DOMContentLoaded", async () => {
-  renderAppShell({
-    active: "leads",
-    title: "Lead Pipeline",
-    subtitle: "Google Maps, website parsing, LinkedIn discovery, and SMTP verification feed the verified lead queue here.",
-    content: `
-      <div class="grid cols-2">
-        <div class="card">
-          <h2>Add Lead</h2>
-          <form class="form" id="lead-form">
-            <div class="field"><label>Email</label><input name="email" type="email" /></div>
-            <div class="field"><label>Phone</label><input name="phone" type="text" /></div>
-            <div class="field"><label>First name</label><input name="first_name" type="text" /></div>
-            <div class="field"><label>Last name</label><input name="last_name" type="text" /></div>
-            <div class="field"><label>Company</label><input name="company" type="text" /></div>
-            <div class="field"><label>Title</label><input name="title" type="text" /></div>
-            <button class="btn btn-primary" type="submit">Save lead</button>
-          </form>
-        </div>
-        <div class="card">
-          <h2>Recent Leads</h2>
-          <div id="leads-table"></div>
-        </div>
-      </div>
-    `,
-  });
+let leadsState = {
+  items: [],
+  filtered: [],
+  page: 1,
+  pageSize: 6,
+  query: "",
+  status: "all",
+  sort: "created_desc",
+};
 
-  async function loadLeads() {
-    const leads = await apiFetch("/leads/");
-    document.getElementById("leads-table").innerHTML = leads.length
-      ? `
+function leadDisplayName(lead) {
+  return [lead.first_name, lead.last_name].filter(Boolean).join(" ") || lead.name || lead.email || "Unnamed Lead";
+}
+
+function sortLeads(items) {
+  const sorted = [...items];
+  if (leadsState.sort === "company_asc") {
+    sorted.sort((a, b) => (a.company || "").localeCompare(b.company || ""));
+  } else if (leadsState.sort === "status_asc") {
+    sorted.sort((a, b) => (a.status || "").localeCompare(b.status || ""));
+  } else {
+    sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }
+  return sorted;
+}
+
+function filterLeads() {
+  const query = leadsState.query.trim().toLowerCase();
+  leadsState.filtered = sortLeads(
+    leadsState.items.filter((lead) => {
+      const statusMatch = leadsState.status === "all" || lead.status === leadsState.status;
+      const textMatch =
+        !query ||
+        [leadDisplayName(lead), lead.email, lead.company, lead.title, lead.source]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+      return statusMatch && textMatch;
+    })
+  );
+}
+
+function pagedLeads() {
+  const start = (leadsState.page - 1) * leadsState.pageSize;
+  return leadsState.filtered.slice(start, start + leadsState.pageSize);
+}
+
+function renderLeadsTable() {
+  const rows = pagedLeads();
+  const totalPages = Math.max(1, Math.ceil(leadsState.filtered.length / leadsState.pageSize));
+  document.getElementById("leads-table").innerHTML = rows.length
+    ? `
+      <div class="data-table-shell">
         <table class="table">
-          <thead><tr><th>Name</th><th>Company</th><th>Status</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Company</th>
+              <th>Status</th>
+              <th>Source</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
           <tbody>
-            ${leads
+            ${rows
               .map(
                 (lead) => `
                   <tr>
-                    <td>${[lead.first_name, lead.last_name].filter(Boolean).join(" ") || lead.email || "Unknown"}</td>
-                    <td>${lead.company || "-"}</td>
-                    <td>${lead.status}</td>
+                    <td>
+                      <strong>${titleCase(leadDisplayName(lead))}</strong>
+                      <div class="label">${lead.email || "No Email Provided"}</div>
+                    </td>
+                    <td>
+                      ${titleCase(lead.company || "Unknown Company")}
+                      <div class="label">${titleCase(lead.title || "No Title")}</div>
+                    </td>
+                    <td><span class="status-chip">${titleCase(lead.status)}</span></td>
+                    <td>${titleCase(lead.source || "Manual")}</td>
+                    <td><button class="btn btn-secondary" type="button" data-trigger-outreach="${lead.id}">Send Outreach</button></td>
                   </tr>
                 `
               )
               .join("")}
           </tbody>
         </table>
-      `
-      : '<div class="empty">No leads yet.</div>';
+        <div class="pagination">
+          <div class="label">Showing ${rows.length} Of ${leadsState.filtered.length} Leads</div>
+          <div class="action-row">
+            <button class="btn btn-secondary" type="button" id="leads-prev" ${leadsState.page === 1 ? "disabled" : ""}>Previous</button>
+            <span class="label">Page ${leadsState.page} Of ${totalPages}</span>
+            <button class="btn btn-secondary" type="button" id="leads-next" ${leadsState.page >= totalPages ? "disabled" : ""}>Next</button>
+          </div>
+        </div>
+      </div>
+    `
+    : '<div class="empty">No Leads Match The Current Search And Filter.</div>';
+
+  document.querySelectorAll("[data-trigger-outreach]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const leadId = Number(button.getAttribute("data-trigger-outreach"));
+      await apiFetch("/outreach/trigger", {
+        method: "POST",
+        body: JSON.stringify({ lead_id: leadId }),
+        loaderTitle: "Triggering Outreach",
+        loaderSubtitle: "Generating A Personalized Message",
+      });
+      showToast("Outreach Triggered Successfully");
+    });
+  });
+
+  document.getElementById("leads-prev")?.addEventListener("click", () => {
+    leadsState.page = Math.max(1, leadsState.page - 1);
+    renderLeadsTable();
+  });
+
+  document.getElementById("leads-next")?.addEventListener("click", () => {
+    leadsState.page += 1;
+    renderLeadsTable();
+  });
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  renderAppShell({
+    active: "leads",
+    title: "Lead Pipeline",
+    subtitle: "Capture, Search, Filter, And Action Qualified Leads In A Modern SaaS Table",
+    searchPlaceholder: "Search Leads By Name, Email, Company, Or Title",
+    content: `
+      <section class="grid cols-2">
+        <div class="card">
+          <div class="toolbar">
+            <div>
+              <h2>Add Lead</h2>
+              <p>Create A Lead Record Manually For Testing Or Assisted Prospecting</p>
+            </div>
+          </div>
+          <form class="form" id="lead-form">
+            <div class="field floating-field"><input name="first_name" type="text" placeholder=" " /><label>First Name</label></div>
+            <div class="field floating-field"><input name="last_name" type="text" placeholder=" " /><label>Last Name</label></div>
+            <div class="field floating-field"><input name="email" type="email" placeholder=" " /><label>Email Address</label></div>
+            <div class="field floating-field"><input name="company" type="text" placeholder=" " /><label>Company Name</label></div>
+            <div class="field floating-field"><input name="title" type="text" placeholder=" " /><label>Job Title</label></div>
+            <div class="field floating-field"><input name="linkedin_url" type="url" placeholder=" " /><label>LinkedIn Url</label></div>
+            <button class="btn btn-primary" type="submit">Save Lead</button>
+            <div class="label" id="lead-form-status"></div>
+          </form>
+        </div>
+        <div class="card">
+          <div class="toolbar">
+            <div>
+              <h2>Lead List</h2>
+              <p>Search, Sort, Filter, And Trigger Actions From The Table</p>
+            </div>
+          </div>
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <input id="lead-search" type="search" placeholder="Search Leads" />
+              <select id="lead-status-filter">
+                <option value="all">All Statuses</option>
+                <option value="new">New</option>
+                <option value="verified">Verified</option>
+                <option value="contacted">Contacted</option>
+              </select>
+              <select id="lead-sort">
+                <option value="created_desc">Newest First</option>
+                <option value="company_asc">Company A To Z</option>
+                <option value="status_asc">Status A To Z</option>
+              </select>
+            </div>
+          </div>
+          <div id="leads-table"></div>
+        </div>
+      </section>
+    `,
+  });
+
+  async function loadLeads() {
+    leadsState.items = await apiFetch("/leads/", {
+      loaderTitle: "Loading Leads",
+      loaderSubtitle: "Fetching Verified Prospects",
+    });
+    filterLeads();
+    renderLeadsTable();
   }
 
   document.getElementById("lead-form").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const form = new FormData(event.target);
-    const payload = Object.fromEntries(form.entries());
-    await apiFetch("/leads/", { method: "POST", body: JSON.stringify(payload) });
+    const payload = Object.fromEntries(new FormData(event.target).entries());
+    await apiFetch("/leads/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+      loaderTitle: "Saving Lead",
+      loaderSubtitle: "Updating The Lead Pipeline",
+    });
+    document.getElementById("lead-form-status").textContent = "Lead Saved Successfully";
+    showToast("Lead Saved Successfully");
     event.target.reset();
-    loadLeads();
+    await loadLeads();
   });
 
-  loadLeads();
+  document.getElementById("lead-search").addEventListener("input", (event) => {
+    leadsState.query = event.target.value;
+    leadsState.page = 1;
+    filterLeads();
+    renderLeadsTable();
+  });
+
+  document.getElementById("lead-status-filter").addEventListener("change", (event) => {
+    leadsState.status = event.target.value;
+    leadsState.page = 1;
+    filterLeads();
+    renderLeadsTable();
+  });
+
+  document.getElementById("lead-sort").addEventListener("change", (event) => {
+    leadsState.sort = event.target.value;
+    filterLeads();
+    renderLeadsTable();
+  });
+
+  await loadLeads();
 });

@@ -1,39 +1,74 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bizard Leads</title>
-  <link rel="stylesheet" href="/css/base.css" />
-  <link rel="stylesheet" href="/css/layout.css" />
-  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/base.css?v=20260319" />
+  <link rel="stylesheet" href="/css/layout.css?v=20260319" />
+  <link rel="stylesheet" href="/css/components.css?v=20260319" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=20260319" />
+  <link rel="stylesheet" href="/styles/design-system.css?v=20260319" />
 </head>
 <body>
   <div class="landing-shell">
-    <a class="brand" href="/"><span>Bizard</span> Leads</a>
+    <div class="top-navigation">
+      <a class="brand" href="/"><span>Bizard</span> Leads</a>
+      <div class="top-navigation-tools">
+        <a class="btn btn-secondary" href="/login.html">Log In</a>
+        <a class="btn btn-primary" href="/signup.html">Create Workspace</a>
+        <button class="btn btn-secondary" type="button" data-theme-toggle>
+          <span data-theme-icon></span>
+          <span data-theme-label></span>
+        </button>
+      </div>
+    </div>
     <section class="hero">
-      <div>
-        <div class="pill">Outreach at the comfort of your couch</div>
-        <h1>The SMB growth stack that runs while you work.</h1>
+      <div class="card" style="padding:40px;">
+        <div class="pill">Modern SaaS Growth Automation</div>
+        <h1 style="margin-top:16px;">Lead Automation And Social Content In One Client-Ready Workspace</h1>
         <p>
-          Source leads from LinkedIn and Google, personalize outreach, answer support messages, and deliver a weekly
-          performance report from one clean dashboard.
+          Source Verified Leads, Manage Social Content, Personalize Outreach, Run Support Automation, And Deliver
+          Executive Reporting From A Unified SaaS Command Center.
         </p>
         <div class="cta-row">
-          <a class="btn btn-primary" href="/signup.html">Create account</a>
-          <a class="btn btn-secondary" href="/login.html">Log in</a>
+          <a class="btn btn-primary" href="/signup.html">Start Free Setup</a>
+          <a class="btn btn-secondary" href="/dashboard.html">Preview Dashboard</a>
+        </div>
+        <div class="hero-list">
+          <div><strong>Lead Discovery</strong><p>Google Maps, Website Parsing, LinkedIn Discovery, SMTP Verification, And HubSpot Sync.</p></div>
+          <div><strong>Social Content Studio</strong><p>Trend Insights, AI Drafting, Approval, Publishing, And Analytics.</p></div>
+          <div><strong>Execution Layer</strong><p>FastAPI, Background Workers, Caching, Rate Limiting, And Secure JWT Sessions.</p></div>
         </div>
       </div>
-      <div class="card hero-card">
-        <h2>Four automated loops</h2>
-        <div class="hero-list">
-          <div><strong>Lead sourcing</strong><p>Google Maps -> website parsing -> LinkedIn -> SMTP verification -> HubSpot</p></div>
-          <div><strong>Outreach</strong><p>HubSpot webhook -> OpenAI email -> Mailtrap SMTP</p></div>
-          <div><strong>Support</strong><p>Chatwoot webhook -> OpenAI reply -> Chatwoot</p></div>
-          <div><strong>Reporting</strong><p>Database metrics -> AI summary -> email report</p></div>
+      <div class="card hero-card" style="padding:32px;">
+        <div class="metric-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+          <div class="card metric-card">
+            <div class="metric-header"><span class="metric-icon" data-hero-icon="leads"></span><span class="status-chip">+23% This Week</span></div>
+            <div class="label">Qualified Leads</div>
+            <strong class="metric-value">10K / Day Ready</strong>
+          </div>
+          <div class="card metric-card">
+            <div class="metric-header"><span class="metric-icon" data-hero-icon="social"></span><span class="status-chip">Multi-Channel</span></div>
+            <div class="label">Social Publishing</div>
+            <strong class="metric-value">4 Core Platforms</strong>
+          </div>
         </div>
+        <div style="margin-top:24px;" class="empty">Built To Feel Familiar To Teams Who Love Stripe, Linear, Notion, Vercel, Supabase, Figma, And HubSpot.</div>
       </div>
     </section>
   </div>
+  <script src="/js/layout.js?v=20260319"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
+        button.addEventListener("click", toggleTheme);
+      });
+      document.querySelectorAll("[data-hero-icon]").forEach((node) => {
+        node.innerHTML = iconMarkup(node.getAttribute("data-hero-icon"));
+      });
+      applyTheme(getPreferredTheme());
+    });
+  </script>
 </body>
 </html>
