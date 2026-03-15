@@ -18,13 +18,14 @@ def create_workflow_run(
     trigger_source: str,
     user_id: int | None,
     payload: dict | None = None,
+    status: str = "running",
 ) -> WorkflowRun:
     run = WorkflowRun(
         workflow_name=workflow_name,
         domain=domain,
         user_id=user_id,
         trigger_source=trigger_source,
-        status="running",
+        status=status,
         payload=json.dumps(payload or {}),
     )
     db.add(run)

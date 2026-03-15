@@ -90,23 +90,33 @@
 
 .floating-field {
   position: relative;
+  padding-top: 10px;
 }
 
 .floating-field input,
 .floating-field textarea,
 .floating-field select {
-  padding-top: 20px;
+  min-height: 48px;
+  padding-top: 18px;
+  padding-right: 16px;
   padding-bottom: 12px;
+  padding-left: 16px;
+  line-height: 1.5;
 }
 
 .floating-field label {
   position: absolute;
-  top: 14px;
-  left: 14px;
+  top: 0;
+  left: 12px;
+  z-index: 1;
+  padding: 0 4px;
+  transform: translateY(0);
   color: var(--text-soft);
   font-size: 0.84rem;
   pointer-events: none;
-  transition: transform var(--transition-fast), color var(--transition-fast);
+  background: var(--surface);
+  line-height: 1.2;
+  transition: color var(--transition-fast);
   text-transform: capitalize;
 }
 
@@ -114,12 +124,14 @@
 .field textarea,
 .field select {
   width: 100%;
-  padding: 13px 14px;
+  min-height: 48px;
+  padding: 12px 16px;
   border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  line-height: 1.5;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
 }
 
 .field input:focus,
@@ -131,9 +143,26 @@
 }
 
 .floating-field input:focus + label,
+.floating-field input:not(:placeholder-shown) + label,
 .floating-field textarea:focus + label,
-.floating-field select:focus + label {
+.floating-field textarea:not(:placeholder-shown) + label,
+.floating-field select:focus + label,
+.floating-field select:valid + label,
+.floating-field select.has-value + label {
   color: var(--primary-blue);
+}
+
+.field input[aria-invalid="true"],
+.field textarea[aria-invalid="true"],
+.field select[aria-invalid="true"] {
+  border-color: color-mix(in srgb, var(--danger) 60%, var(--border));
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.12);
+}
+
+.field-error {
+  color: var(--danger);
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .table {
@@ -232,6 +261,167 @@
   flex-wrap: wrap;
 }
 
+.section-header {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.section-header p,
+.summary-card p,
+.action-card p {
+  margin: 0;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.summary-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface) 95%, transparent);
+  box-shadow: var(--shadow-sm);
+}
+
+.summary-card strong {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: 1.65rem;
+  letter-spacing: -0.04em;
+}
+
+.summary-card .metric-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent-blue) 14%, transparent);
+  color: var(--primary-blue);
+}
+
+.summary-card .metric-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.action-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-muted) 84%, transparent);
+}
+
+.job-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-muted) 84%, transparent);
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.job-status-badge[data-status="idle"] {
+  color: var(--text-soft);
+}
+
+.job-status-badge[data-status="queued"],
+.job-status-badge[data-status="running"] {
+  color: var(--primary-blue);
+  border-color: color-mix(in srgb, var(--primary-blue) 35%, var(--border));
+  background: color-mix(in srgb, var(--primary-blue) 10%, transparent);
+}
+
+.job-status-badge[data-status="completed"] {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border));
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+}
+
+.job-status-badge[data-status="failed"] {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+.job-status-badge[data-status="stopped"] {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+
+.job-inline-feedback {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.job-inline-feedback .label {
+  min-height: 20px;
+}
+
+.job-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--primary-blue) 20%, transparent);
+  border-top-color: var(--primary-blue);
+  animation: jobSpin 0.8s linear infinite;
+}
+
+.job-runner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.job-runner-panel {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-muted) 82%, transparent);
+}
+
+.job-runner-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.btn[disabled] {
+  opacity: 0.64;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+@keyframes jobSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .metric-value {
   font-size: 2rem;
   font-weight: 700;
@@ -277,6 +467,7 @@
     grid-template-columns: 1fr;
   }
 
+  .summary-grid,
   .checkbox-grid {
     grid-template-columns: 1fr;
   }

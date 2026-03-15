@@ -12,12 +12,12 @@ function renderChart(canvasId, config, existingChartRef) {
   return new Chart(context, config);
 }
 
-function safeTopic(report) {
+function workflowLabel(report) {
   try {
     const payload = report.payload ? JSON.parse(report.payload) : {};
-    return payload.topic || report.status;
+    return report.workflow_name || payload.topic || report.domain || report.status;
   } catch {
-    return report.status;
+    return report.workflow_name || report.domain || report.status;
   }
 }
 
@@ -25,11 +25,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderAppShell({
     active: "reports",
     title: "Reports And Analytics",
-    subtitle: "Review Executive Totals, Workflow History, And Visual Trends In One Reporting Surface",
+    subtitle: "Review The Current Report Payloads, Workflow Counts, And Operational Trends Returned By The Backend",
     searchPlaceholder: "Search Reports And Workflow History",
     actions: '<button class="btn btn-primary" id="trigger-report">Run Weekly Report</button>',
     content: `
-      <section class="metric-grid" id="report-metrics"></section>
+      <section class="summary-grid" id="report-summary"></section>
+      <section class="metric-grid metric-grid-compact" id="report-metrics"></section>
       <section class="chart-grid" style="margin-top:24px;">
         <div class="card chart-card">
           <h2>Workflow Volume Over Time</h2>
@@ -58,6 +59,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       loaderSubtitle: "Compiling Analytics And Workflow History",
     });
 
+    document.getElementById("report-summary").innerHTML = `
+      <article class="summary-card"><span class="metric-icon">${iconMarkup("reports")}</span><div><div class="label">Report Runs</div><strong>${reports.recent_reports.length}</strong><p>Recent Report And Analytics Workflows</p></div></article>
+      <article class="summary-card"><span class="metric-icon">${iconMarkup("dashboard")}</span><div><div class="label">Records Processed</div><strong>${reports.recent_reports.reduce((sum, item) => sum + Number(item.records_processed || 0), 0)}</strong><p>Total Records Processed Across Recent Runs</p></div></article>
+      <article class="summary-card"><span class="metric-icon">${iconMarkup("social")}</span><div><div class="label">Records Created</div><strong>${reports.recent_reports.reduce((sum, item) => sum + Number(item.records_created || 0), 0)}</strong><p>Total Records Created Across Recent Runs</p></div></article>
+    `;
+
     document.getElementById("report-metrics").innerHTML = Object.entries(reports.totals)
       .map(
         ([key, value]) => `
@@ -67,7 +74,7 @@ document.addEventListener("DOMContentLoaded", async () => {
               <span class="trend-indicator">Executive Summary</span>
             </div>
             <div class="label">${titleCase(key)}</div>
-            <strong class="metric-value">${value}</strong>
+            <strong class="metric-value">${Number(value || 0).toLocaleString()}</strong>
             <div class="metric-footer label">Updated From Live Data</div>
           </article>
         `
@@ -76,7 +83,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById("report-history").innerHTML = reports.recent_reports.length
       ? `
-        <table class="table">
+        <table class="table workflow-table">
           <thead>
             <tr>
               <th>Workflow</th>
@@ -84,6 +91,7 @@ document.addEventListener("DOMContentLoaded", async () => {
               <th>Status</th>
               <th>Processed</th>
               <th>Created</th>
+              <th>Runtime</th>
               <th>Started</th>
             </tr>
           </thead>
@@ -92,11 +100,12 @@ document.addEventListener("DOMContentLoaded", async () => {
               .map(
                 (report) => `
                   <tr>
-                    <td>${titleCase(safeTopic(report))}</td>
+                    <td>${titleCase(workflowLabel(report))}</td>
                     <td>${titleCase(report.domain || "General")}</td>
                     <td><span class="status-chip">${titleCase(report.status)}</span></td>
                     <td>${report.records_processed || 0}</td>
                     <td>${report.records_created || 0}</td>
+                    <td>${Number(report.execution_time || 0).toFixed(1)}s</td>
                     <td>${new Date(report.started_at).toLocaleString()}</td>
                   </tr>
                 `

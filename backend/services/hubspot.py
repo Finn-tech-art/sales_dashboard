@@ -23,7 +23,12 @@ class HubSpotClient:
     def _headers(self) -> dict[str, str]:
         if not self.access_token:
             raise ServiceConfigurationError("HUBSPOT_ACCESS_TOKEN is not configured")
-        return {"Authorization": f"Bearer {self.access_token}", "Content-Type": "application/json"}
+        return {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "BizardLeads/1.0",
+        }
 
     def _request(self, method: str, path: str, *, params: dict[str, Any] | None = None, json: dict[str, Any] | None = None) -> dict[str, Any]:
         response = self.client.request(

@@ -12,11 +12,18 @@ const APP_LINKS = [
 let pendingLoaderCount = 0;
 
 function titleCase(value) {
-  return String(value || "")
+  const normalized = String(value || "")
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+
+  return normalized
+    .replace(/\bTiktok\b/g, "TikTok")
+    .replace(/\bLinkedin\b/g, "LinkedIn")
+    .replace(/\bYoutube\b/g, "YouTube")
+    .replace(/\bHubspot\b/g, "HubSpot")
+    .replace(/\bGoogle Maps\b/g, "Google Maps");
 }
 
 function getPreferredTheme() {
@@ -135,6 +142,34 @@ function ensureGlobalUi() {
   }
 }
 
+function hydrateFloatingFields(root = document) {
+  root.querySelectorAll(".floating-field").forEach((field, index) => {
+    const control = field.querySelector("input, textarea, select");
+    const label = field.querySelector("label");
+    if (!control || !label) {
+      return;
+    }
+
+    if (!control.id) {
+      const baseName = control.getAttribute("name") || `field-${index + 1}`;
+      control.id = `field-${baseName.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}-${index + 1}`;
+    }
+
+    label.htmlFor = control.id;
+    if (!control.getAttribute("aria-label")) {
+      control.setAttribute("aria-label", label.textContent.trim());
+    }
+
+    if (control.tagName === "SELECT") {
+      const syncSelectState = () => {
+        control.classList.toggle("has-value", Boolean(control.value));
+      };
+      syncSelectState();
+      control.addEventListener("change", syncSelectState);
+    }
+  });
+}
+
 function showAppLoader(title = "Loading Workspace", subtitle = "Preparing Your Command Center") {
   ensureGlobalUi();
   pendingLoaderCount += 1;
@@ -179,7 +214,7 @@ function renderTopNavigation({ searchPlaceholder = "Search Your Workspace", acti
           <span class="sr-only">Workspace Search</span>
           <div style="position:relative;">
             <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-soft); width:18px; height:18px;">${iconMarkup("search")}</span>
-            <input type="search" placeholder="${titleCase(searchPlaceholder)}" style="padding-left:42px;" aria-label="${titleCase(searchPlaceholder)}" />
+            <input id="workspace-search-input" data-workspace-search type="search" placeholder="${titleCase(searchPlaceholder)}" style="padding-left:42px;" aria-label="${titleCase(searchPlaceholder)}" autocomplete="off" />
           </div>
         </label>
         <button class="btn btn-secondary" type="button" data-theme-toggle>
@@ -215,7 +250,7 @@ function renderAppShell({
     <div class="shell ${shellClass}">
       <aside class="sidebar">
         <a class="brand" href="/"><span>Bizard</span> Leads</a>
-        <p>Lead Automation And Social Automation In One Secure Workspace</p>
+        <p>Lead Operations, Outreach Automation, Social Publishing, And Reporting In One Secure Workspace</p>
         <nav class="nav-list">${nav}</nav>
       </aside>
       <main class="main">
@@ -240,6 +275,7 @@ function renderAppShell({
   `;
 
   applyTheme(getPreferredTheme());
+  hydrateFloatingFields(document.body);
   document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
     button.addEventListener("click", toggleTheme);
   });
@@ -263,6 +299,7 @@ function renderAuthShell({ title, subtitle, content }) {
   `;
 
   applyTheme(getPreferredTheme());
+  hydrateFloatingFields(document.body);
   document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
     button.addEventListener("click", toggleTheme);
   });
@@ -280,3 +317,4 @@ window.hideAppLoader = hideAppLoader;
 window.showToast = showToast;
 window.renderAppShell = renderAppShell;
 window.renderAuthShell = renderAuthShell;
+window.hydrateFloatingFields = hydrateFloatingFields;

@@ -26,6 +26,7 @@ def get_reports(current_user: User = Depends(get_current_user), db: Session = De
             {
                 "id": run.id,
                 "domain": run.domain,
+                "workflow_name": run.workflow_name,
                 "status": run.status,
                 "records_processed": run.records_processed,
                 "records_created": run.records_created,

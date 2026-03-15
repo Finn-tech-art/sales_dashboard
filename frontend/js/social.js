@@ -1,6 +1,13 @@
 requireAuth();
 
 const SOCIAL_PLATFORMS = ["instagram", "tiktok", "facebook", "youtube", "linkedin", "x"];
+const SOCIAL_TREND_WORKFLOW_NAME = "social-trend-discovery";
+const SOCIAL_TREND_JOB_KEY = "bizard_social_trend_job_id";
+let socialMetrics = {};
+let socialTrends = [];
+let socialPosts = [];
+let currentTrendJob = null;
+let trendJobPoller = null;
 
 function formatDate(value) {
   return value ? new Date(value).toLocaleString() : "Not Scheduled";
@@ -9,6 +16,155 @@ function formatDate(value) {
 function selectedPlatformsFromForm(formData) {
   const selected = formData.getAll("platforms");
   return selected.length ? selected : null;
+}
+
+function isActiveTrendJob(status) {
+  return ["queued", "running"].includes(String(status || "").toLowerCase());
+}
+
+function getStoredTrendJobId() {
+  return localStorage.getItem(SOCIAL_TREND_JOB_KEY);
+}
+
+function setStoredTrendJobId(jobId) {
+  if (jobId) {
+    localStorage.setItem(SOCIAL_TREND_JOB_KEY, jobId);
+    return;
+  }
+  localStorage.removeItem(SOCIAL_TREND_JOB_KEY);
+}
+
+function stopTrendPolling() {
+  trendJobPoller?.stop?.();
+  trendJobPoller = null;
+}
+
+function renderDiscoveryFeedback(job = currentTrendJob) {
+  const normalizedStatus = String(job?.status || "idle").toLowerCase();
+  const runButton = document.getElementById("run-discovery-button");
+  const stopButton = document.getElementById("stop-discovery-button");
+  const statusSlot = document.getElementById("social-discovery-badge");
+  const spinnerSlot = document.getElementById("social-discovery-spinner");
+  const textSlot = document.getElementById("social-discovery-status");
+
+  if (statusSlot) {
+    statusSlot.innerHTML = renderJobStatusBadge(normalizedStatus);
+  }
+
+  if (spinnerSlot) {
+    spinnerSlot.innerHTML = isActiveTrendJob(normalizedStatus) ? `<span class="job-runner">${renderInlineJobSpinner(normalizedStatus === "queued" ? "Queued" : "Running")}</span>` : "";
+  }
+
+  if (textSlot) {
+    if (!job) {
+      textSlot.textContent = "Ready To Run Discovery";
+    } else if (normalizedStatus === "completed") {
+      const created = Number(job.records_created || 0);
+      textSlot.textContent = `${created} Trends Saved`;
+    } else if (normalizedStatus === "failed") {
+      textSlot.textContent = job.error_message || "Trend Discovery Failed";
+    } else if (normalizedStatus === "stopped") {
+      textSlot.textContent = "Trend Discovery Stopped";
+    } else if (normalizedStatus === "queued") {
+      textSlot.textContent = "Trend Discovery Queued";
+    } else {
+      textSlot.textContent = "Trend Discovery Running";
+    }
+  }
+
+  if (runButton) {
+    runButton.disabled = isActiveTrendJob(normalizedStatus);
+    runButton.innerHTML = isActiveTrendJob(normalizedStatus) ? renderInlineJobSpinner("Running") : "Run Discovery";
+  }
+
+  if (stopButton) {
+    stopButton.disabled = !isActiveTrendJob(normalizedStatus);
+    stopButton.hidden = !isActiveTrendJob(normalizedStatus);
+  }
+}
+
+function setCurrentTrendJob(job) {
+  currentTrendJob = job ? { ...job, status: String(job.status || "idle").toLowerCase() } : null;
+  setStoredTrendJobId(currentTrendJob?.job_id || null);
+  renderDiscoveryFeedback(currentTrendJob);
+}
+
+async function fetchLatestTrendWorkflow() {
+  const workflows = await apiFetch("/workflows/", { showLoader: false });
+  return (workflows.recent_runs || []).find((run) => run.workflow_name === SOCIAL_TREND_WORKFLOW_NAME) || null;
+}
+
+async function syncTrendJobById(jobId) {
+  if (!jobId) {
+    setCurrentTrendJob(null);
+    return null;
+  }
+
+  try {
+    const job = await apiFetch(`/workflows/status/${jobId}`, { showLoader: false });
+    setCurrentTrendJob(job);
+    return job;
+  } catch (error) {
+    setStoredTrendJobId(null);
+    setCurrentTrendJob(null);
+    throw error;
+  }
+}
+
+function startTrendPolling(jobId) {
+  stopTrendPolling();
+  trendJobPoller = createJobPoller({
+    intervalMs: 3000,
+    fetchStatus: () => apiFetch(`/workflows/status/${jobId}`, { showLoader: false }),
+    onUpdate: (job) => {
+      setCurrentTrendJob(job);
+    },
+    onTerminal: async (job) => {
+      setCurrentTrendJob(job);
+      if (job.status === "completed") {
+        notifyJobStatus("completed", "Trend Discovery Completed");
+        await Promise.all([loadMetrics(), loadTrends()]);
+      } else if (job.status === "stopped") {
+        notifyJobStatus("stopped", "Trend Discovery Stopped");
+      } else {
+        notifyJobStatus("failed", job.error_message || "Trend Discovery Failed");
+      }
+    },
+  });
+  trendJobPoller.start();
+}
+
+async function restoreTrendJobState() {
+  const storedJobId = getStoredTrendJobId();
+  if (storedJobId) {
+    try {
+      const storedJob = await syncTrendJobById(storedJobId);
+      if (storedJob && isActiveTrendJob(storedJob.status)) {
+        startTrendPolling(storedJob.job_id);
+        return;
+      }
+    } catch (error) {
+      console.warn("Unable To Restore Stored Trend Job", error);
+    }
+  }
+
+  try {
+    const latestRun = await fetchLatestTrendWorkflow();
+    if (!latestRun) {
+      setCurrentTrendJob(null);
+      return;
+    }
+    if (latestRun.job_id?.startsWith("trend_")) {
+      const latestJob = await syncTrendJobById(latestRun.job_id);
+      if (latestJob && isActiveTrendJob(latestJob.status)) {
+        startTrendPolling(latestJob.job_id);
+      }
+    } else {
+      setCurrentTrendJob(latestRun);
+    }
+  } catch (error) {
+    console.warn("Unable To Recover Trend Discovery State", error);
+  }
 }
 
 function renderPlatformCheckboxes() {
@@ -22,20 +178,40 @@ function renderPlatformCheckboxes() {
   ).join("");
 }
 
+function renderPlatformHealth() {
+  const platformCounts = SOCIAL_PLATFORMS.map((platform) => ({
+    platform,
+    drafts: socialPosts.filter((post) => post.platform === platform && post.approval_status !== "approved").length,
+    published: socialPosts.filter((post) => post.platform === platform && post.publish_status === "published").length,
+  }));
+
+  document.getElementById("platform-health").innerHTML = platformCounts
+    .map(
+      (item) => `
+        <div class="settings-item">
+          <span class="label">${titleCase(item.platform)}</span>
+          <strong>${item.drafts} Drafts | ${item.published} Published</strong>
+        </div>
+      `
+    )
+    .join("");
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   renderAppShell({
     active: "social",
     title: "Social Content Studio",
-    subtitle: "Discover Trends, Generate Drafts, Approve Content, Configure Publishing, And Review Performance",
+    subtitle: "Work With The Actual Trend And Post Records Returned By The Social Domain Instead Of Generic Demo Content",
     searchPlaceholder: "Search Trends, Drafts, And Published Posts",
     content: `
-      <section class="metric-grid" id="social-metrics"></section>
+      <section class="summary-grid" id="social-summary"></section>
+      <section class="metric-grid metric-grid-compact" id="social-metrics"></section>
       <section class="board-grid" style="margin-top:24px;">
         <div class="card">
-          <div class="toolbar">
+          <div class="section-header">
             <div>
               <h2>Trend Insights</h2>
-              <p>Discover Topic Signals Across Priority Social Platforms</p>
+              <p>Run Discovery Against The Topic And Platform Inputs The Backend Social Workflow Accepts</p>
             </div>
           </div>
           <form class="form" id="social-discovery-form">
@@ -51,26 +227,27 @@ document.addEventListener("DOMContentLoaded", async () => {
               <input name="limit" type="number" min="1" max="20" value="8" placeholder=" " />
               <label>Trend Limit</label>
             </div>
-            <div class="action-row">
-              <button class="btn btn-primary" type="submit">Run Discovery</button>
-              <span class="label" id="social-discovery-status"></span>
+            <div class="job-runner-panel">
+              <div class="job-runner-actions">
+                <button class="btn btn-primary" id="run-discovery-button" type="submit">Run Discovery</button>
+                <button class="btn btn-danger" id="stop-discovery-button" type="button" hidden>Stop</button>
+                <div id="social-discovery-badge">${renderJobStatusBadge("idle")}</div>
+              </div>
+              <div class="job-inline-feedback">
+                <div id="social-discovery-spinner"></div>
+                <span class="label" id="social-discovery-status">Ready To Run Discovery</span>
+              </div>
             </div>
           </form>
         </div>
         <div class="card">
-          <div class="stack">
+          <div class="section-header">
             <div>
-              <h2>Publishing Settings</h2>
-              <p>Manage Platform Readiness Before Publishing Draft Content</p>
+              <h2>Publishing Readiness</h2>
+              <p>Current Platform Post Counts And Queue Status Based On Stored Social Posts</p>
             </div>
-            <div class="settings-list">
-              <div class="settings-item"><span class="label">Instagram</span><span class="status-chip">Connect Account Prompt</span></div>
-              <div class="settings-item"><span class="label">TikTok</span><span class="status-chip">Connect Account Prompt</span></div>
-              <div class="settings-item"><span class="label">Facebook</span><span class="status-chip">Connect Account Prompt</span></div>
-              <div class="settings-item"><span class="label">YouTube</span><span class="status-chip">Connect Account Prompt</span></div>
-            </div>
-            <div class="empty">Publishing Is Routed Through N8N In This MVP. Connect Each Platform Before Scheduling Client Content.</div>
           </div>
+          <div id="platform-health" class="settings-list"></div>
         </div>
       </section>
       <section class="board-grid" style="margin-top:24px;">
@@ -88,7 +265,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <div class="toolbar">
             <div>
               <h2>Approval Queue</h2>
-              <p>Approve, Publish, Or Iterate On AI Generated Posts</p>
+              <p>Approve, Publish, Or Iterate On Generated Social Posts</p>
             </div>
           </div>
           <div id="post-list" class="stack"></div>
@@ -98,11 +275,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   async function loadMetrics() {
-    const metrics = await apiFetch("/social/dashboard", {
+    socialMetrics = await apiFetch("/social/dashboard", {
       loaderTitle: "Loading Social Analytics",
       loaderSubtitle: "Preparing Social Studio Metrics",
     });
-    document.getElementById("social-metrics").innerHTML = Object.entries(metrics)
+
+    document.getElementById("social-summary").innerHTML = `
+      <article class="summary-card"><span class="metric-icon">${iconMarkup("social")}</span><div><div class="label">Tracked Trends</div><strong>${socialMetrics.tracked_trends || 0}</strong><p>Trend Records Available For Creation</p></div></article>
+      <article class="summary-card"><span class="metric-icon">${iconMarkup("dashboard")}</span><div><div class="label">Draft Queue</div><strong>${socialMetrics.draft_posts || 0}</strong><p>Posts Waiting For Review Or Approval</p></div></article>
+      <article class="summary-card"><span class="metric-icon">${iconMarkup("reports")}</span><div><div class="label">Published Queue</div><strong>${socialMetrics.published_posts || 0}</strong><p>Posts Scheduled Or Published</p></div></article>
+    `;
+
+    document.getElementById("social-metrics").innerHTML = Object.entries(socialMetrics)
       .map(
         ([key, value]) => `
           <article class="card metric-card">
@@ -111,7 +295,7 @@ document.addEventListener("DOMContentLoaded", async () => {
               <span class="trend-indicator">Live Social Signal</span>
             </div>
             <div class="label">${titleCase(key)}</div>
-            <strong class="metric-value">${value}</strong>
+            <strong class="metric-value">${Number(value || 0).toLocaleString()}</strong>
             <div class="metric-footer label">Updated From The Social Domain</div>
           </article>
         `
@@ -120,12 +304,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   async function loadTrends() {
-    const trends = await apiFetch("/social/trends?limit=18", {
+    socialTrends = await apiFetch("/social/trends?limit=18", {
       loaderTitle: "Loading Trends",
       loaderSubtitle: "Fetching Ranked Social Signals",
     });
-    document.getElementById("trend-list").innerHTML = trends.length
-      ? trends
+
+    document.getElementById("trend-list").innerHTML = socialTrends.length
+      ? socialTrends
           .map(
             (trend) => `
               <article class="trend-card">
@@ -135,7 +320,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                   <span class="status-chip">${titleCase(trend.status)}</span>
                 </div>
                 <h3>${titleCase(trend.keyword)}</h3>
-                <p>${titleCase(trend.summary || "No Summary Returned For This Trend Yet")}</p>
+                <p>${trend.summary || "No Summary Returned For This Trend Yet"}</p>
                 <div class="label">Discovered ${formatDate(trend.discovered_at)}</div>
                 <div class="action-row">
                   <select id="platform-${trend.id}">
@@ -166,12 +351,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   async function loadPosts() {
-    const posts = await apiFetch("/social/posts?limit=18", {
+    socialPosts = await apiFetch("/social/posts?limit=18", {
       loaderTitle: "Loading Draft Queue",
       loaderSubtitle: "Fetching Social Content Drafts",
     });
-    document.getElementById("post-list").innerHTML = posts.length
-      ? posts
+
+    document.getElementById("post-list").innerHTML = socialPosts.length
+      ? socialPosts
           .map(
             (post) => `
               <article class="post-card">
@@ -181,9 +367,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                   <span class="status-chip">${titleCase(post.publish_status)}</span>
                 </div>
                 <h3>${titleCase(post.title || "Untitled Social Draft")}</h3>
-                <div class="label">${titleCase(post.caption || "No Caption Generated Yet")}</div>
-                <div class="content-block">${titleCase(post.content || "No Content Generated Yet")}</div>
-                <div class="label">Created ${formatDate(post.created_at)} · Scheduled ${formatDate(post.scheduled_for)}</div>
+                <div class="label">${post.caption || "No Caption Generated Yet"}</div>
+                <div class="content-block">${post.content || "No Content Generated Yet"}</div>
+                <div class="label">Created ${formatDate(post.created_at)} | Scheduled ${formatDate(post.scheduled_for)}</div>
                 <div class="action-row">
                   ${post.approval_status !== "approved" ? `<button class="btn btn-secondary" data-approve-post="${post.id}">Approve</button>` : ""}
                   <button class="btn btn-secondary" data-regenerate-post="${post.id}">Regenerate</button>
@@ -195,6 +381,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           )
           .join("")
       : '<div class="empty">No Drafts Yet. Generate Content From A Ranked Trend.</div>';
+
+    renderPlatformHealth();
 
     document.querySelectorAll("[data-approve-post]").forEach((button) => {
       button.addEventListener("click", async () => {
@@ -234,22 +422,87 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("social-discovery-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (currentTrendJob && isActiveTrendJob(currentTrendJob.status)) {
+      notifyJobStatus("running", "Trend Discovery Is Already Running");
+      return;
+    }
+
     const formData = new FormData(event.target);
     const payload = {
       topic: formData.get("topic"),
       platforms: selectedPlatformsFromForm(formData),
       limit: Number(formData.get("limit") || 8),
     };
-    const status = document.getElementById("social-discovery-status");
-    const result = await apiFetch("/social/trends/discover", {
-      method: "POST",
-      body: JSON.stringify(payload),
-      loaderTitle: "Discovering Trends",
-      loaderSubtitle: "Collecting Fresh Social Signals",
+
+    setCurrentTrendJob({
+      job_id: currentTrendJob?.job_id || null,
+      status: "running",
+      records_created: 0,
+      records_processed: 0,
+      error_message: null,
     });
-    status.textContent = `${result.count} Trends Discovered`;
-    showToast(`${result.count} Trends Discovered`);
-    await Promise.all([loadMetrics(), loadTrends()]);
+
+    try {
+      const existingRun = await fetchLatestTrendWorkflow();
+      if (existingRun && isActiveTrendJob(existingRun.status) && existingRun.job_id?.startsWith("trend_")) {
+        const activeJob = await syncTrendJobById(existingRun.job_id);
+        startTrendPolling(activeJob.job_id);
+        notifyJobStatus("running", "Trend Discovery Is Already Running");
+        return;
+      }
+
+      const result = await apiFetch("/workflows/start-trend-discovery", {
+        method: "POST",
+        body: JSON.stringify(payload),
+        showLoader: false,
+      });
+
+      setCurrentTrendJob({
+        job_id: result.job_id,
+        workflow_run_id: result.workflow_run_id,
+        status: "queued",
+        records_created: 0,
+        records_processed: 0,
+      });
+      notifyJobStatus("running", "Trend Discovery Started");
+      startTrendPolling(result.job_id);
+    } catch (error) {
+      if (error.status === 409 && error.payload?.detail?.job_id) {
+        const activeJob = await syncTrendJobById(error.payload.detail.job_id);
+        startTrendPolling(activeJob.job_id);
+        notifyJobStatus("running", error.payload.detail.message || "Trend Discovery Is Already Running");
+        return;
+      }
+
+      setCurrentTrendJob({
+        job_id: null,
+        status: "failed",
+        error_message: error.message || "Unable To Start Trend Discovery",
+      });
+      notifyJobStatus("failed", error.message || "Trend Discovery Failed");
+    }
+  });
+
+  document.getElementById("stop-discovery-button").addEventListener("click", async () => {
+    if (!currentTrendJob?.job_id || !isActiveTrendJob(currentTrendJob.status)) {
+      return;
+    }
+
+    try {
+      const result = await apiFetch(`/workflows/stop/${currentTrendJob.job_id}`, {
+        method: "POST",
+        showLoader: false,
+      });
+      stopTrendPolling();
+      setCurrentTrendJob({
+        ...currentTrendJob,
+        ...result,
+        status: "stopped",
+      });
+      notifyJobStatus("stopped", "Trend Discovery Stopped");
+    } catch (error) {
+      notifyJobStatus("failed", error.message || "Unable To Stop Trend Discovery");
+    }
   });
 
   document.getElementById("refresh-social").addEventListener("click", async () => {
@@ -257,5 +510,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     showToast("Social Studio Refreshed", "info");
   });
 
-  await Promise.all([loadMetrics(), loadTrends(), loadPosts()]);
+  await Promise.all([loadMetrics(), loadTrends(), loadPosts(), restoreTrendJobState()]);
 });

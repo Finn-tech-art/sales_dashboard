@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sign Up | Bizard Leads</title>
-  <link rel="stylesheet" href="/css/base.css?v=20260319" />
-  <link rel="stylesheet" href="/css/layout.css?v=20260319" />
-  <link rel="stylesheet" href="/css/components.css?v=20260319" />
-  <link rel="stylesheet" href="/styles/design-system.css?v=20260319" />
+  <link rel="stylesheet" href="/css/base.css?v=20260324" />
+  <link rel="stylesheet" href="/css/layout.css?v=20260324" />
+  <link rel="stylesheet" href="/css/components.css?v=20260324" />
+  <link rel="stylesheet" href="/styles/design-system.css?v=20260324" />
 </head>
 <body>
-  <script src="/js/api.js?v=20260319"></script>
-  <script src="/js/layout.js?v=20260319"></script>
+  <script src="/js/api.js?v=20260324"></script>
+  <script src="/js/layout.js?v=20260324"></script>
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       renderAuthShell({
@@ -19,12 +19,24 @@
         subtitle: "Provision Your Lead Automation And Social Content Account.",
         content: `
           <form class="form" id="signup-form">
-            <div class="field floating-field"><input name="full_name" type="text" placeholder=" " /><label>Full Name</label></div>
-            <div class="field floating-field"><input name="company_name" type="text" placeholder=" " /><label>Company Name</label></div>
-            <div class="field floating-field"><input name="email" type="email" placeholder=" " required /><label>Email Address</label></div>
-            <div class="field floating-field"><input name="password" type="password" placeholder=" " required /><label>Password</label></div>
+            <div class="field floating-field">
+              <input id="signup-full-name" name="full_name" type="text" placeholder=" " autocomplete="name" aria-label="Full Name" />
+              <label for="signup-full-name">Full Name</label>
+            </div>
+            <div class="field floating-field">
+              <input id="signup-company-name" name="company_name" type="text" placeholder=" " autocomplete="organization" aria-label="Company Name" />
+              <label for="signup-company-name">Company Name</label>
+            </div>
+            <div class="field floating-field">
+              <input id="signup-email" name="email" type="email" placeholder=" " autocomplete="email" aria-label="Email Address" required />
+              <label for="signup-email">Email Address</label>
+            </div>
+            <div class="field floating-field">
+              <input id="signup-password" name="password" type="password" placeholder=" " autocomplete="new-password" aria-label="Password" required />
+              <label for="signup-password">Password</label>
+            </div>
             <button class="btn btn-primary" type="submit">Create Account</button>
-            <div id="signup-status" class="label"></div>
+            <div id="signup-status" class="field-error" role="alert" aria-live="polite"></div>
           </form>
         `,
       });
@@ -32,6 +44,11 @@
       document.getElementById("signup-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const status = document.getElementById("signup-status");
+        const emailField = document.getElementById("signup-email");
+        const passwordField = document.getElementById("signup-password");
+        status.textContent = "";
+        emailField.setAttribute("aria-invalid", "false");
+        passwordField.setAttribute("aria-invalid", "false");
         try {
           const payload = Object.fromEntries(new FormData(event.target).entries());
           await apiFetch("/auth/signup", { method: "POST", body: JSON.stringify(payload), loaderTitle: "Creating Workspace", loaderSubtitle: "Securing Your New Account" });
@@ -39,6 +56,8 @@
           showToast("Account Created Successfully");
         } catch (error) {
           status.textContent = error.message || "Could not create account.";
+          emailField.setAttribute("aria-invalid", "true");
+          passwordField.setAttribute("aria-invalid", "true");
           showToast(status.textContent, "error");
         }
       });

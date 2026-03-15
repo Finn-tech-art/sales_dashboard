@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH: str = "10/minute"
     RATE_LIMIT_WORKFLOWS: str = "20/minute"
     RATE_LIMIT_WEBHOOKS: str = "30/minute"
+    HUBSPOT_WEBHOOK_SHARED_HEADER_NAME: str = "X-Bizard-Webhook-Secret"
 
     JWT_SECRET: str = Field(
         default="change-me",
@@ -59,10 +60,7 @@ class Settings(BaseSettings):
         default="",
         validation_alias=AliasChoices("HUBSPOT_ACCESS_TOKEN", "HUBSPOT_API_KEY", "HUBSPOT_PRIVATE_APP_TOKEN"),
     )
-    HUBSPOT_CLIENT_SECRET: str = Field(
-        default="",
-        validation_alias=AliasChoices("HUBSPOT_CLIENT_SECRET", "HUBSPOT_WEBHOOK_SECRET"),
-    )
+    HUBSPOT_CLIENT_SECRET: str = ""
     CHATWOOT_API_KEY: str = ""
     MAILTRAP_HOST: str = ""
     MAILTRAP_PORT: int = 2525

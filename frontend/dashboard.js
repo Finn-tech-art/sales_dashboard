@@ -1,310 +1,219 @@
-import { renderMetricCard } from "/components/metric-card.js?v=20260319";
-import { renderLeadList } from "/components/lead-list.js?v=20260319";
-import { renderChartCard, mountLazyChart } from "/components/chart-widget.js?v=20260319";
-import { renderTaskPanel } from "/components/task-panel.js?v=20260319";
+requireAuth();
 
-window.requireAuth();
-
-const dashboardState = {
-  metrics: [],
-  leads: [],
-  filteredLeads: [],
-  leadStatusBreakdown: {},
-  opportunities: { labels: [], closed_won: [], closed_lost: [] },
-  sales: { labels: [], revenue: [] },
-  tasks: [],
-  isDemoMode: false,
+const KPI_META = {
+  total_leads: { label: "Tracked Leads", icon: "leads", note: "Lead Records In The CRM" },
+  outreach_sent: { label: "Outreach Sends", icon: "outreach", note: "Logged Messages Delivered" },
+  support_responses: { label: "Support Replies", icon: "support", note: "Automated Chat Replies Sent" },
+  successful_workflows: { label: "Completed Lead Workflows", icon: "dashboard", note: "Lead Jobs Finished Successfully" },
+  tracked_trends: { label: "Tracked Trends", icon: "social", note: "Trend Records In The Social Domain" },
+  draft_posts: { label: "Draft Posts", icon: "social", note: "Posts Waiting For Approval" },
+  published_posts: { label: "Published Or Scheduled Posts", icon: "reports", note: "Posts Ready For Distribution" },
 };
 
-const DEMO_DASHBOARD_DATA = {
-  metrics: [
-    { key: "total_leads", label: "Total Leads", value: 1842, change: "+12% This Week", trend: [140, 165, 182, 190, 210, 228, 246] },
-    { key: "total_opportunities", label: "Total Opportunities", value: 146, change: "+9% This Week", trend: [12, 15, 18, 17, 20, 23, 26] },
-    { key: "total_sales", label: "Total Sales", value: 84250, change: "+17% This Week", trend: [8200, 9100, 10600, 9800, 12500, 14800, 19250] },
-  ],
-  leads: [
-    { avatar: "AL", name: "Amina Limo", email: "amina@northpeak.co", company: "Northpeak Studio", stage: "New" },
-    { avatar: "JM", name: "James Mworia", email: "james@blueorbit.io", company: "Blue Orbit", stage: "Qualified" },
-    { avatar: "SK", name: "Sofia Kimani", email: "sofia@fieldlane.com", company: "Fieldlane", stage: "Contacted" },
-    { avatar: "TN", name: "Theo Njoroge", email: "theo@acelytics.ai", company: "Acelytics", stage: "Closed" },
-    { avatar: "PR", name: "Priya Rao", email: "priya@vervegrid.com", company: "Vervegrid", stage: "Qualified" },
-    { avatar: "DO", name: "Daniel Otieno", email: "daniel@highmarklabs.com", company: "Highmark Labs", stage: "New" },
-    { avatar: "MN", name: "Maya Njeri", email: "maya@lumenforge.com", company: "Lumenforge", stage: "Contacted" },
-    { avatar: "EC", name: "Ethan Cole", email: "ethan@northstarhq.com", company: "Northstar HQ", stage: "Qualified" },
-  ],
-  leadStatusBreakdown: { New: 28, Contacted: 21, Qualified: 17, Closed: 9 },
-  opportunities: {
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    closed_won: [2, 3, 4, 3, 5, 4, 6],
-    closed_lost: [1, 1, 2, 1, 2, 2, 1],
-  },
-  sales: {
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    revenue: [4200, 5600, 6100, 5800, 7900, 8600, 10400],
-  },
-  tasks: [
-    { title: "Review New Lead Segments", detail: "Prioritize 28 New Contacts That Landed In The Last 7 Days", priority: "High" },
-    { title: "Prepare Qualification Follow Ups", detail: "17 Qualified Leads Need Personalized Sequences Before Friday", priority: "Medium" },
-    { title: "Validate Weekend Revenue Spike", detail: "Sunday Revenue Increased By 21% Compared To Saturday", priority: "Medium" },
-  ],
-};
+const WORKFLOW_ACTIONS = [
+  { workflow: "lead-sourcing", label: "Run Lead Sourcing", icon: "leads", note: "Start The Free Lead Discovery Pipeline" },
+  { workflow: "weekly-report", label: "Run Weekly Report", icon: "reports", note: "Queue The Executive Summary Job" },
+  { workflow: "social-trends", label: "Run Social Trends", icon: "social", note: "Discover New Topics For Content" },
+  { workflow: "social-analytics", label: "Run Social Analytics", icon: "dashboard", note: "Refresh Stored Social Metrics" },
+  { workflow: "support-followup", label: "Queue Support Follow-Up", icon: "support", note: "Push A Support Worker Task" },
+];
 
-function searchInput() {
-  return document.querySelector(".workspace-search input");
+const LEAD_METRIC_KEYS = ["total_leads", "outreach_sent", "support_responses", "successful_workflows"];
+const SOCIAL_METRIC_KEYS = ["tracked_trends", "draft_posts", "published_posts"];
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString();
 }
 
-function wireDashboardSearch() {
-  searchInput()?.addEventListener("input", (event) => {
-    const query = event.target.value.trim().toLowerCase();
-    dashboardState.filteredLeads = dashboardState.leads.filter((lead) =>
-      [lead.name, lead.email, lead.company].filter(Boolean).join(" ").toLowerCase().includes(query)
-    );
-    document.getElementById("crm-recent-leads").innerHTML = renderLeadList(dashboardState.filteredLeads);
-  });
+function metricCard(key, value) {
+  const meta = KPI_META[key] || { label: titleCase(key), icon: "dashboard", note: "Live Metric" };
+  return `
+    <article class="card metric-card">
+      <div class="metric-header">
+        <span class="metric-icon">${iconMarkup(meta.icon)}</span>
+        <span class="trend-indicator">${titleCase(meta.note)}</span>
+      </div>
+      <div class="label">${meta.label}</div>
+      <strong class="metric-value">${formatNumber(value)}</strong>
+      <div class="metric-footer label">${meta.note}</div>
+    </article>
+  `;
 }
 
-function renderSalesSummary() {
-  const total = dashboardState.sales.revenue.reduce((sum, value) => sum + value, 0);
-  const max = Math.max(0, ...dashboardState.sales.revenue);
-  const bestDayIndex = dashboardState.sales.revenue.findIndex((value) => value === max);
+function summaryCard(label, value, note, icon) {
+  return `
+    <article class="summary-card">
+      <span class="metric-icon">${iconMarkup(icon)}</span>
+      <div>
+        <div class="label">${titleCase(label)}</div>
+        <strong>${formatNumber(value)}</strong>
+        <p>${titleCase(note)}</p>
+      </div>
+    </article>
+  `;
+}
+
+function workflowTable(runs) {
+  if (!runs.length) {
+    return '<div class="empty">No Workflow Runs Have Been Logged Yet.</div>';
+  }
 
   return `
-    <div class="crm-sales-summary">
-      <div class="crm-summary-tile">
-        <div class="label">7 Day Revenue</div>
-        <strong class="metric-value">${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(total)}</strong>
-      </div>
-      <div class="crm-summary-tile">
-        <div class="label">Best Revenue Day</div>
-        <strong class="metric-value">${dashboardState.sales.labels[bestDayIndex] || "-"}</strong>
-      </div>
-      <div class="crm-summary-tile">
-        <div class="label">Closed Won Events</div>
-        <strong class="metric-value">${dashboardState.opportunities.closed_won.reduce((sum, value) => sum + value, 0)}</strong>
-      </div>
+    <div class="data-table-shell">
+      <table class="table workflow-table">
+        <thead>
+          <tr>
+            <th>Workflow</th>
+            <th>Domain</th>
+            <th>Status</th>
+            <th>Processed</th>
+            <th>Created</th>
+            <th>Runtime</th>
+            <th>Started</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${runs
+            .map(
+              (item) => `
+                <tr>
+                  <td><strong>${titleCase(item.workflow_name)}</strong></td>
+                  <td>${titleCase(item.domain || "Platform")}</td>
+                  <td><span class="status-chip">${titleCase(item.status)}</span></td>
+                  <td>${formatNumber(item.records_processed)}</td>
+                  <td>${formatNumber(item.records_created)}</td>
+                  <td>${Number(item.execution_time || 0).toFixed(1)}s</td>
+                  <td>${new Date(item.started_at).toLocaleString()}</td>
+                </tr>
+              `
+            )
+            .join("")}
+        </tbody>
+      </table>
     </div>
   `;
 }
 
-function renderDashboard() {
-  const notificationsButton = `
-    <button class="crm-top-icon-button" type="button" aria-label="Notifications">
-      ${window.iconMarkup("support")}
-    </button>
-  `;
-  const newLeadButton = `<button class="btn btn-primary" type="button">New Action</button>`;
-  const avatar = '<span class="crm-avatar" aria-hidden="true">BL</span>';
-
-  window.renderAppShell({
+document.addEventListener("DOMContentLoaded", async () => {
+  renderAppShell({
     active: "dashboard",
-    title: "HubSpot CRM Dashboard",
-    subtitle: "Monitor Leads, Opportunities, Revenue, And Task Activity From Your HubSpot Workspace",
-    searchPlaceholder: "Search Leads",
-    shellClass: "crm-dashboard-shell",
-    actions: `<div class="crm-top-actions">${notificationsButton}${newLeadButton}${avatar}</div>`,
+    title: "Operations Dashboard",
+    subtitle: "Monitor Live Lead, Outreach, Support, Social, And Workflow Performance From One Shared Control Surface",
+    searchPlaceholder: "Search Leads, Posts, And Reports",
+    actions:
+      '<button class="btn btn-secondary" type="button" onclick="clearTokens(); window.location.href=\'/login.html\'">' +
+      iconMarkup("logOut") +
+      "Log Out</button>",
     content: `
-      <div class="crm-dashboard">
-        ${dashboardState.isDemoMode ? `
-          <section class="card crm-panel crm-demo-banner">
-            <div class="crm-demo-copy">
-              <div class="pill">Demo Mode</div>
-              <h2>HubSpot Data Is Temporarily Unavailable</h2>
-              <p class="crm-panel-subtitle">Showing Sample CRM Data So You Can Review The Dashboard Experience While The Live Integration Is Being Finalized.</p>
+      <section class="summary-grid" id="dashboard-summary"></section>
+      <section class="split" style="margin-top:24px;">
+        <div class="card">
+          <div class="section-header">
+            <div>
+              <h2>Lead Operations Snapshot</h2>
+              <p>Current Lead, Outreach, Support, And Lead Workflow Metrics Pulled From The Authenticated Backend</p>
             </div>
-          </section>
-        ` : ""}
-        <section class="metric-grid" id="crm-metrics">
-          ${dashboardState.metrics.map((card) => renderMetricCard(card)).join("")}
-        </section>
-        <section class="crm-grid" style="margin-top:24px;">
-          <div class="crm-main">
-            <div class="crm-chart-grid">
-              ${renderChartCard({
-                title: "Opportunity Summary",
-                subtitle: "Closed Won Vs Closed Lost Over The Last 7 Days",
-                canvasId: "hubspot-opportunity-chart",
-              })}
-              ${renderChartCard({
-                title: "Lead Status",
-                subtitle: "Current HubSpot Lifecycle Distribution",
-                canvasId: "hubspot-status-chart",
-              })}
-            </div>
-            <div class="crm-chart-grid crm-chart-grid--full">
-              ${renderChartCard({
-                title: "Sales Summary",
-                subtitle: "Revenue By Day Across The Last 7 Days",
-                canvasId: "hubspot-sales-chart",
-              })}
-            </div>
-            <section class="card crm-panel">
-              <div class="crm-panel-header">
-                <div>
-                  <h2>Sales Summary Snapshot</h2>
-                  <p class="crm-panel-subtitle">Quick Performance Readout Powered By HubSpot Deals</p>
-                </div>
-              </div>
-              ${renderSalesSummary()}
-            </section>
           </div>
-          <aside class="crm-sidebar-panel">
-            <section class="card crm-panel">
-              <div class="crm-panel-header">
-                <div>
-                  <h2>Recent Leads</h2>
-                  <p class="crm-panel-subtitle">Latest Contacts Synced From HubSpot</p>
-                </div>
-              </div>
-              <div id="crm-recent-leads">${renderLeadList(dashboardState.filteredLeads)}</div>
-            </section>
-            <section class="card crm-panel">
-              <div class="crm-panel-header">
-                <div>
-                  <h2>Tasks Panel</h2>
-                  <p class="crm-panel-subtitle">Suggested Focus Areas Based On HubSpot Activity</p>
-                </div>
-              </div>
-              <div id="crm-tasks">${renderTaskPanel(dashboardState.tasks)}</div>
-            </section>
-          </aside>
-        </section>
-      </div>
+          <div class="metric-grid metric-grid-compact" id="lead-metric-grid"></div>
+        </div>
+        <div class="card">
+          <div class="section-header">
+            <div>
+              <h2>Social Studio Snapshot</h2>
+              <p>Live Trend And Publishing Counts From The Social Domain</p>
+            </div>
+          </div>
+          <div class="metric-grid metric-grid-compact" id="social-metric-grid"></div>
+        </div>
+      </section>
+      <section class="board-grid" style="margin-top:24px;">
+        <div class="card">
+          <div class="toolbar">
+            <div>
+              <h2>Recent Workflow Activity</h2>
+              <p>Queued And Completed Jobs Across Lead Automation And Social Automation</p>
+            </div>
+            <button class="btn btn-secondary" id="refresh-dashboard">Refresh Dashboard</button>
+          </div>
+          <div id="workflow-list"></div>
+        </div>
+        <div class="card">
+          <div class="section-header">
+            <div>
+              <h2>Operator Actions</h2>
+              <p>Run Only The Workflows That Are Actually Available In This Environment</p>
+            </div>
+          </div>
+          <div class="stack" id="workflow-actions"></div>
+        </div>
+      </section>
     `,
   });
 
-  wireDashboardSearch();
+  async function loadDashboard() {
+    const [dashboard, workflows] = await Promise.all([
+      apiFetch("/dashboard/", {
+        loaderTitle: "Loading Dashboard",
+        loaderSubtitle: "Preparing Your Workspace Overview",
+      }),
+      apiFetch("/workflows/", {
+        loaderTitle: "Loading Workflows",
+        loaderSubtitle: "Checking Available Background Jobs",
+      }),
+    ]);
 
-  mountLazyChart("hubspot-opportunity-chart", () => ({
-    type: "line",
-    data: {
-      labels: dashboardState.opportunities.labels,
-      datasets: [
-        {
-          label: "Closed Won",
-          data: dashboardState.opportunities.closed_won,
-          borderColor: "#2563EB",
-          backgroundColor: "rgba(37, 99, 235, 0.12)",
-          fill: true,
-          tension: 0.35,
-        },
-        {
-          label: "Closed Lost",
-          data: dashboardState.opportunities.closed_lost,
-          borderColor: "#94A3B8",
-          backgroundColor: "rgba(148, 163, 184, 0.12)",
-          fill: true,
-          tension: 0.35,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: "bottom" } },
-      scales: {
-        y: { beginAtZero: true, grid: { color: "rgba(148,163,184,0.12)" } },
-        x: { grid: { display: false } },
-      },
-    },
-  }));
+    document.getElementById("dashboard-summary").innerHTML = [
+      summaryCard("Lead Pipeline", dashboard.kpis.total_leads || 0, "Tracked Leads Currently Stored", "leads"),
+      summaryCard(
+        "Message Operations",
+        (dashboard.kpis.outreach_sent || 0) + (dashboard.kpis.support_responses || 0),
+        "Outreach Sends And Support Replies Logged",
+        "outreach"
+      ),
+      summaryCard(
+        "Social Output",
+        (dashboard.kpis.draft_posts || 0) + (dashboard.kpis.published_posts || 0),
+        "Draft And Published Social Posts",
+        "social"
+      ),
+    ].join("");
 
-  mountLazyChart("hubspot-status-chart", () => ({
-    type: "doughnut",
-    data: {
-      labels: Object.keys(dashboardState.leadStatusBreakdown),
-      datasets: [
-        {
-          data: Object.values(dashboardState.leadStatusBreakdown),
-          backgroundColor: ["#2563EB", "#3B82F6", "#60A5FA", "#1D4ED8"],
-          borderWidth: 0,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      cutout: "68%",
-      plugins: { legend: { position: "bottom" } },
-    },
-  }));
+    document.getElementById("lead-metric-grid").innerHTML = LEAD_METRIC_KEYS.map((key) => metricCard(key, dashboard.kpis[key] || 0)).join("");
+    document.getElementById("social-metric-grid").innerHTML = SOCIAL_METRIC_KEYS.map((key) => metricCard(key, dashboard.kpis[key] || 0)).join("");
+    document.getElementById("workflow-list").innerHTML = workflowTable(dashboard.recent_workflows || []);
 
-  mountLazyChart("hubspot-sales-chart", () => ({
-    type: "bar",
-    data: {
-      labels: dashboardState.sales.labels,
-      datasets: [
-        {
-          label: "Revenue",
-          data: dashboardState.sales.revenue,
-          backgroundColor: "#2563EB",
-          borderRadius: 10,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { beginAtZero: true, grid: { color: "rgba(148,163,184,0.12)" } },
-        x: { grid: { display: false } },
-      },
-    },
-  }));
-}
+    const availableWorkflows = new Set(workflows.available || []);
+    document.getElementById("workflow-actions").innerHTML = WORKFLOW_ACTIONS.filter((item) => availableWorkflows.has(item.workflow))
+      .map(
+        (item) => `
+          <article class="action-card">
+            <div class="metric-header">
+              <span class="metric-icon">${iconMarkup(item.icon)}</span>
+              <span class="status-chip">Available</span>
+            </div>
+            <strong>${titleCase(item.label)}</strong>
+            <p>${titleCase(item.note)}</p>
+            <button class="btn btn-primary" type="button" data-run-workflow="${item.workflow}">Run Workflow</button>
+          </article>
+        `
+      )
+      .join("");
 
-async function loadDashboardData() {
-  const requests = await Promise.allSettled([
-    window.apiFetch("/hubspot/metrics"),
-    window.apiFetch("/hubspot/leads?limit=8"),
-    window.apiFetch("/hubspot/opportunities"),
-    window.apiFetch("/hubspot/sales"),
-    window.apiFetch("/hubspot/tasks"),
-  ]);
-
-  const hasFailure = requests.some((request) => request.status === "rejected");
-  if (hasFailure) {
-    dashboardState.metrics = DEMO_DASHBOARD_DATA.metrics;
-    dashboardState.leads = DEMO_DASHBOARD_DATA.leads;
-    dashboardState.filteredLeads = [...DEMO_DASHBOARD_DATA.leads];
-    dashboardState.leadStatusBreakdown = DEMO_DASHBOARD_DATA.leadStatusBreakdown;
-    dashboardState.opportunities = DEMO_DASHBOARD_DATA.opportunities;
-    dashboardState.sales = DEMO_DASHBOARD_DATA.sales;
-    dashboardState.tasks = DEMO_DASHBOARD_DATA.tasks;
-    dashboardState.isDemoMode = true;
-    return;
+    document.querySelectorAll("[data-run-workflow]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const workflow = button.getAttribute("data-run-workflow");
+        await apiFetch(`/workflows/${workflow}/run`, {
+          method: "POST",
+          loaderTitle: "Queueing Workflow",
+          loaderSubtitle: `Dispatching ${workflow}`,
+        });
+        showToast(`${workflow} Queued`);
+        await loadDashboard();
+      });
+    });
   }
 
-  const [metricsPayload, leadsPayload, opportunitiesPayload, salesPayload, tasksPayload] = requests.map(
-    (request) => request.value
-  );
+  document.getElementById("refresh-dashboard").addEventListener("click", loadDashboard);
 
-  dashboardState.metrics = metricsPayload.cards || [];
-  dashboardState.leads = leadsPayload.items || [];
-  dashboardState.filteredLeads = [...dashboardState.leads];
-  dashboardState.leadStatusBreakdown = leadsPayload.status_breakdown || {};
-  dashboardState.opportunities = opportunitiesPayload;
-  dashboardState.sales = salesPayload;
-  dashboardState.tasks = tasksPayload.items || [];
-  dashboardState.isDemoMode = false;
-}
-
-document.addEventListener("DOMContentLoaded", async () => {
-  renderDashboard();
-  try {
-    await loadDashboardData();
-    renderDashboard();
-    if (dashboardState.isDemoMode) {
-      window.showToast("HubSpot Is Unavailable, Showing Demo Dashboard Data", "warning");
-    }
-  } catch (error) {
-    console.error(error);
-    dashboardState.metrics = DEMO_DASHBOARD_DATA.metrics;
-    dashboardState.leads = DEMO_DASHBOARD_DATA.leads;
-    dashboardState.filteredLeads = [...DEMO_DASHBOARD_DATA.leads];
-    dashboardState.leadStatusBreakdown = DEMO_DASHBOARD_DATA.leadStatusBreakdown;
-    dashboardState.opportunities = DEMO_DASHBOARD_DATA.opportunities;
-    dashboardState.sales = DEMO_DASHBOARD_DATA.sales;
-    dashboardState.tasks = DEMO_DASHBOARD_DATA.tasks;
-    dashboardState.isDemoMode = true;
-    renderDashboard();
-    window.showToast(error.message || "Unable To Load The HubSpot Dashboard", "error");
-  }
+  await loadDashboard();
 });

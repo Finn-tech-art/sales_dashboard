@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Log In | Bizard Leads</title>
-  <link rel="stylesheet" href="/css/base.css?v=20260319" />
-  <link rel="stylesheet" href="/css/layout.css?v=20260319" />
-  <link rel="stylesheet" href="/css/components.css?v=20260319" />
-  <link rel="stylesheet" href="/styles/design-system.css?v=20260319" />
+  <link rel="stylesheet" href="/css/base.css?v=20260324" />
+  <link rel="stylesheet" href="/css/layout.css?v=20260324" />
+  <link rel="stylesheet" href="/css/components.css?v=20260324" />
+  <link rel="stylesheet" href="/styles/design-system.css?v=20260324" />
 </head>
 <body>
-  <script src="/js/api.js?v=20260319"></script>
-  <script src="/js/layout.js?v=20260319"></script>
+  <script src="/js/api.js?v=20260324"></script>
+  <script src="/js/layout.js?v=20260324"></script>
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       renderAuthShell({
@@ -19,10 +19,16 @@
         subtitle: "Return To Your Lead Automation And Social Content Workspace.",
         content: `
           <form class="form" id="login-form">
-            <div class="field floating-field"><input name="email" type="email" placeholder=" " required /><label>Email Address</label></div>
-            <div class="field floating-field"><input name="password" type="password" placeholder=" " required /><label>Password</label></div>
+            <div class="field floating-field">
+              <input id="login-email" name="email" type="email" placeholder=" " autocomplete="email" aria-label="Email Address" required />
+              <label for="login-email">Email Address</label>
+            </div>
+            <div class="field floating-field">
+              <input id="login-password" name="password" type="password" placeholder=" " autocomplete="current-password" aria-label="Password" required />
+              <label for="login-password">Password</label>
+            </div>
             <button class="btn btn-primary" type="submit">Access Workspace</button>
-            <div id="login-error" class="label"></div>
+            <div id="login-error" class="field-error" role="alert" aria-live="polite"></div>
           </form>
         `,
       });
@@ -30,6 +36,11 @@
       document.getElementById("login-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const errorBanner = document.getElementById("login-error");
+        const emailField = document.getElementById("login-email");
+        const passwordField = document.getElementById("login-password");
+        errorBanner.textContent = "";
+        emailField.setAttribute("aria-invalid", "false");
+        passwordField.setAttribute("aria-invalid", "false");
         try {
           const payload = Object.fromEntries(new FormData(event.target).entries());
           const result = await apiFetch("/auth/login", { method: "POST", body: JSON.stringify(payload), loaderTitle: "Signing In", loaderSubtitle: "Opening Your Command Center" });
@@ -38,6 +49,8 @@
           window.location.href = "/dashboard.html";
         } catch (error) {
           errorBanner.textContent = error.message || "Unable to log in with those credentials.";
+          emailField.setAttribute("aria-invalid", "true");
+          passwordField.setAttribute("aria-invalid", "true");
           showToast(errorBanner.textContent, "error");
         }
       });

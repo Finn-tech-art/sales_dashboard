@@ -1,86 +1,87 @@
-import hashlib
-import hmac
-import time
-from base64 import b64encode
-from urllib.parse import unquote
+import json
+import logging
 
-from fastapi import APIRouter, Header, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, status
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 from backend.app.config import get_settings
 from backend.app.core.rate_limit import limiter
+from backend.app.core.security import has_hubspot_object_id, has_valid_shared_secret, is_supported_hubspot_webhook_event
 from backend.workers.support import process_chatwoot_webhook
 from backend.workers.webhook_dispatcher import dispatch_hubspot_webhook_task
 
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 settings = get_settings()
+logger = logging.getLogger(__name__)
+
+class HubSpotWebhookEvent(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    subscriptionType: str | None = None
+    eventType: str | None = None
+    objectId: int | str | None = None
+    object_id: int | str | None = None
+    id: int | str | None = None
 
 
-def build_hubspot_signature_v3(
-    *,
-    client_secret: str,
-    method: str,
-    uri: str,
-    body: bytes,
-    timestamp: str,
-) -> str:
-    source = f"{method.upper()}{unquote(uri)}{body.decode('utf-8')}{timestamp}".encode("utf-8")
-    digest = hmac.new(client_secret.encode("utf-8"), source, hashlib.sha256).digest()
-    return b64encode(digest).decode("utf-8")
+class HubSpotWebhookEnvelope(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    events: list[HubSpotWebhookEvent]
 
 
-def verify_hubspot_signature_v3(
-    *,
-    signature: str,
-    payload: bytes,
-    client_secret: str,
-    method: str,
-    uri: str,
-    timestamp: str,
-) -> bool:
-    computed = build_hubspot_signature_v3(
-        client_secret=client_secret,
-        method=method,
-        uri=uri,
-        body=payload,
-        timestamp=timestamp,
-    )
-    return hmac.compare_digest(signature, computed)
+hubspot_webhook_payload_adapter = TypeAdapter(list[HubSpotWebhookEvent] | HubSpotWebhookEnvelope | HubSpotWebhookEvent)
+
+
+def _normalize_hubspot_events(payload: object) -> list[dict]:
+    try:
+        validated = hubspot_webhook_payload_adapter.validate_python(payload)
+    except ValidationError as exc:
+        logger.warning("Rejected HubSpot webhook with invalid payload structure: %s", exc.errors())
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid HubSpot webhook payload") from exc
+
+    if isinstance(validated, list):
+        events = validated
+    elif isinstance(validated, HubSpotWebhookEnvelope):
+        events = validated.events
+    else:
+        events = [validated]
+
+    dispatchable_events = []
+    for event in events:
+        event_data = event.model_dump(exclude_none=True)
+        if is_supported_hubspot_webhook_event(event_data) and has_hubspot_object_id(event_data):
+            dispatchable_events.append(event_data)
+
+    if not dispatchable_events:
+        logger.warning("Rejected HubSpot webhook without dispatchable events: %s", payload)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid HubSpot webhook payload")
+
+    return dispatchable_events
 
 
 @router.post("/hubspot", status_code=status.HTTP_202_ACCEPTED)
 @limiter.limit(settings.RATE_LIMIT_WEBHOOKS)
-async def hubspot_webhook(
-    request: Request,
-    x_hubspot_signature_v3: str | None = Header(default=None),
-    x_hubspot_request_timestamp: str | None = Header(default=None),
-) -> dict:
-    body = await request.body()
-    client_secret = settings.HUBSPOT_CLIENT_SECRET
-    if not x_hubspot_signature_v3 or not x_hubspot_request_timestamp:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing HubSpot signature headers")
-    if not client_secret:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="HubSpot client secret not configured")
+async def hubspot_webhook(request: Request) -> dict:
+    expected_secret = settings.HUBSPOT_CLIENT_SECRET
+    provided_secret = request.headers.get(settings.HUBSPOT_WEBHOOK_SHARED_HEADER_NAME)
+    if not expected_secret:
+        logger.error("Rejected HubSpot webhook because the shared secret is not configured")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="HubSpot webhook shared secret not configured")
+    if not has_valid_shared_secret(expected_secret, provided_secret):
+        logger.warning("Rejected HubSpot webhook with invalid shared header")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook credentials")
 
     try:
-        request_age_ms = abs(int(x_hubspot_request_timestamp) - int(time.time() * 1000))
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid HubSpot timestamp")
-    if request_age_ms > 300000:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Expired HubSpot signature timestamp")
+        payload = await request.json()
+    except json.JSONDecodeError as exc:
+        logger.warning("Rejected HubSpot webhook with invalid JSON: %s", exc)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload") from exc
 
-    request_uri = str(request.url)
-    if not verify_hubspot_signature_v3(
-        signature=x_hubspot_signature_v3,
-        payload=body,
-        client_secret=client_secret,
-        method=request.method,
-        uri=request_uri,
-        timestamp=x_hubspot_request_timestamp,
-    ):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid HubSpot signature")
-    dispatch_hubspot_webhook_task.delay(body.decode("utf-8"))
-    return {"status": "accepted", "queued": True}
+    dispatchable_events = _normalize_hubspot_events(payload)
+    dispatch_hubspot_webhook_task.delay(json.dumps(dispatchable_events))
+    return {"status": "accepted", "queued": True, "events": len(dispatchable_events)}
 
 
 @router.post("/chatwoot", status_code=status.HTTP_202_ACCEPTED)

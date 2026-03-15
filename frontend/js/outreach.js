@@ -3,6 +3,33 @@ requireAuth();
 let outreachLogs = [];
 let outreachLeads = [];
 
+function leadLabel(leadId) {
+  const lead = outreachLeads.find((item) => item.id === leadId);
+  if (!lead) {
+    return `Lead ${leadId}`;
+  }
+  return [lead.first_name, lead.last_name].filter(Boolean).join(" ") || lead.email || lead.company || `Lead ${leadId}`;
+}
+
+function outreachSummary() {
+  return {
+    total: outreachLogs.length,
+    sent: outreachLogs.filter((log) => log.status === "sent").length,
+    queued: outreachLogs.filter((log) => log.status === "queued").length,
+    failed: outreachLogs.filter((log) => log.status === "failed").length,
+  };
+}
+
+function renderOutreachSummary() {
+  const summary = outreachSummary();
+  document.getElementById("outreach-summary").innerHTML = `
+    <article class="summary-card"><span class="metric-icon">${iconMarkup("outreach")}</span><div><div class="label">Outreach Logs</div><strong>${summary.total}</strong><p>Total Outreach Records In The System</p></div></article>
+    <article class="summary-card"><span class="metric-icon">${iconMarkup("dashboard")}</span><div><div class="label">Sent</div><strong>${summary.sent}</strong><p>Messages Successfully Delivered</p></div></article>
+    <article class="summary-card"><span class="metric-icon">${iconMarkup("social")}</span><div><div class="label">Queued</div><strong>${summary.queued}</strong><p>Messages Waiting For Completion</p></div></article>
+    <article class="summary-card"><span class="metric-icon">${iconMarkup("support")}</span><div><div class="label">Failed</div><strong>${summary.failed}</strong><p>Messages Requiring Operator Review</p></div></article>
+  `;
+}
+
 function renderOutreachTable(items, page = 1, pageSize = 6) {
   const start = (page - 1) * pageSize;
   const rows = items.slice(start, start + pageSize);
@@ -18,6 +45,7 @@ function renderOutreachTable(items, page = 1, pageSize = 6) {
               <th>Channel</th>
               <th>Status</th>
               <th>Subject</th>
+              <th>Error</th>
               <th>Sent At</th>
             </tr>
           </thead>
@@ -26,10 +54,14 @@ function renderOutreachTable(items, page = 1, pageSize = 6) {
               .map(
                 (log) => `
                   <tr>
-                    <td>${log.lead_id || "-"}</td>
+                    <td>
+                      <strong>${log.lead_id ? leadLabel(log.lead_id) : "Unknown Lead"}</strong>
+                      <div class="label">${log.lead_id ? `Lead Id ${log.lead_id}` : "No Linked Lead"}</div>
+                    </td>
                     <td>${titleCase(log.channel || "Email")}</td>
                     <td><span class="status-chip">${titleCase(log.status)}</span></td>
-                    <td>${titleCase(log.subject || "No Subject Generated")}</td>
+                    <td>${log.subject || "No Subject Generated"}</td>
+                    <td>${log.error_message || "No Error"}</td>
                     <td>${new Date(log.sent_at).toLocaleString()}</td>
                   </tr>
                 `
@@ -60,7 +92,7 @@ function applyOutreachFilters(page = 1) {
     const statusMatch = status === "all" || log.status === status;
     const textMatch =
       !query ||
-      [String(log.lead_id || ""), log.subject, log.channel, log.status]
+      [String(log.lead_id || ""), leadLabel(log.lead_id), log.subject, log.channel, log.status, log.error_message]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
@@ -74,13 +106,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderAppShell({
     active: "outreach",
     title: "Outreach Queue",
-    subtitle: "Review Personalized Sends, Trigger New Outreach, And Monitor Delivery Status",
+    subtitle: "Review Logged Outreach Activity, Trigger New Sends, And Monitor Delivery State From The Current Lead Dataset",
     searchPlaceholder: "Search Outreach Activity",
     content: `
+      <section class="summary-grid" id="outreach-summary"></section>
       <section class="grid cols-2">
         <div class="card">
-          <h2>Trigger Outreach</h2>
-          <p>Select A Lead And Trigger A Personalized Outreach Sequence</p>
+          <div class="section-header">
+            <div>
+              <h2>Trigger Outreach</h2>
+              <p>Select A Stored Lead And Queue A Personalized Outreach Job</p>
+            </div>
+          </div>
           <form class="form" id="outreach-form">
             <div class="field floating-field">
               <select name="lead_id" id="outreach-lead-select" required></select>
@@ -91,7 +128,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           </form>
         </div>
         <div class="card">
-          <div class="toolbar">
+          <div class="section-header">
             <div>
               <h2>Outreach History</h2>
               <p>Search, Filter, And Audit Generated Outreach Logs</p>
@@ -123,14 +160,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("outreach-lead-select").innerHTML =
       '<option value="">Select A Lead</option>' +
       outreachLeads
-        .map(
-          (lead) =>
-            `<option value="${lead.id}">${titleCase(
-              [lead.first_name, lead.last_name].filter(Boolean).join(" ") || lead.email || `Lead ${lead.id}`
-            )}</option>`
-        )
+        .map((lead) => `<option value="${lead.id}">${[lead.first_name, lead.last_name].filter(Boolean).join(" ") || lead.email || `Lead ${lead.id}`}</option>`)
         .join("");
 
+    renderOutreachSummary();
     applyOutreachFilters();
   }
 

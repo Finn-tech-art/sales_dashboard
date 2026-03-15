@@ -9,6 +9,7 @@ from backend.models import Base, import_models
 
 
 settings = get_settings()
+import_models()
 
 
 def _engine_kwargs() -> dict:
@@ -43,7 +44,6 @@ def session_scope() -> Iterator[Session]:
 
 
 def init_db() -> None:
-    import_models()
     Base.metadata.create_all(bind=engine)
 
 
