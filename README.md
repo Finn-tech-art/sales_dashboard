@@ -9,24 +9,125 @@ Bizard Leads is an AI-powered outreach automation platform for SMBs. The repo fo
 - `frontend` for the static dashboard and auth pages
 - `infra` for nginx and compose-related support files
 
-Current integration workflow:
+## Architecture (Phase 1: LangGraph Agents Scaffolding)
 
-- Lead discovery: Google Maps scraping -> website parsing -> LinkedIn discovery
-- Email generation + verification: pattern generation + SMTP verification
-- CRM sync: HubSpot
-- Outreach delivery: Mailtrap SMTP
-- AI personalization: OpenAI
+Bizard Leads is being refactored to replace n8n automation with **LangGraph agents**. Phase 1 provides:
 
-## Local backend
+- **`backend/app/agents/`**: New agent package with LangGraph StateGraph implementations (replacing n8n workflows).
+- **Agent entrypoints**: Minimal stubs in `backend/app/agents/entrypoints.py` that are tried first, with fallback to existing Celery workers.
+- **Shared agent base** (`backend/app/agents/base.py`): TypedDicts, Redis checkpointer factory, agent result wrappers.
+- **LLM router** (`backend/services/llm_router.py`): Unified entry point for LLM calls (delegates to OpenAI; Groq + fallback in later phases).
+- **Core utilities** (`backend/app/core/observability.py`, `backend/app/core/retry.py`): Minimal logging and retry stubs.
+- **Approval routing** (`backend/app/api/routes/approvals.py`): Stubs for future human-in-the-loop outreach approval.
 
-Use the project venv inside `backend/.venv`:
+### Current integration workflow:
+
+- **Lead discovery**: Google Maps scraping -> website parsing -> LinkedIn discovery (Celery fallback; LangGraph agent scaffolded)
+- **Email generation + verification**: pattern generation + SMTP verification
+- **CRM sync**: HubSpot
+- **Outreach delivery**: Mailtrap SMTP (approval gate scaffolded for Phase 5)
+- **AI personalization**: OpenAI (via llm_router; Groq + fallback in Phase 2)
+- **Reporting**: weekly summaries (Celery fallback; LangGraph agent scaffolded)
+- **Support**: Chatwoot AI responses (Celery fallback; LangGraph + Qdrant RAG in Phase 6)
+
+## Setup
+
+### Step 1: Create and activate virtual environment
+
+```powershell
+python -m venv backend\.venv
+backend\.venv\Scripts\Activate.ps1
+```
+
+### Step 2: Install dependencies
+
+```powershell
+pip install -r backend/requirements.txt
+```
+
+### Step 3: Configure environment
+
+Copy `.env.example` to `.env` and fill in the required secrets:
+
+```powershell
+cp .env.example .env
+```
+
+Required keys:
+- **Core**: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`
+- **Existing integrations**: `OPENAI_API_KEY`, `HUBSPOT_ACCESS_TOKEN`, `CHATWOOT_API_KEY`
+- **Phase 1 (LLM router)**: `GROQ_API_KEY` (optional; uses OpenAI fallback if not set)
+- **Phase 2+**: `TAVILY_API_KEY` (intent signals), `QDRANT_HOST`/`PORT`/`QDRANT_API_KEY` (vector DB), `SENTRY_DSN` (error tracking)
+
+### Local backend
 
 ```powershell
 backend\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --reload
 ```
 
-## Full stack
+In separate terminals:
+
+```powershell
+# Celery worker
+backend\.venv\Scripts\python.exe -m celery -A backend.app.workers.celery_app worker --loglevel=info
+
+# Celery beat scheduler
+backend\.venv\Scripts\python.exe -m celery -A backend.app.workers.celery_app beat --loglevel=info
+```
+
+### Full stack (Docker)
 
 ```powershell
 docker compose up --build
 ```
+
+Services:
+- FastAPI: http://localhost:8000
+- Flower (Celery monitor): http://localhost:5555
+- Postgres: localhost:5432
+- Redis: localhost:6379
+- Qdrant (Phase 2+): localhost:6333
+
+## Testing
+
+Run the test suite locally:
+
+```powershell
+python -m pytest -q
+```
+
+All 25 tests should pass. Tests include smoke tests, HubSpot webhook handlers, and workflow dispatch.
+
+## Agent Entrypoint Fallback Mechanism
+
+Phase 1 introduces a **reversible fallback pattern**:
+
+1. Scheduler and webhook handlers **try agent entrypoints first** (e.g., `try_run_lead_sourcing`).
+2. If an agent function is not found, raises an exception, or returns `False`, the system **falls back to existing Celery tasks**.
+3. This allows iterative agent implementation without disrupting the active platform.
+
+Example (scheduler.py):
+```python
+handled = try_run_lead_sourcing(query=query, user_id=user_id)
+if handled:
+    return {"status": "agent_handled"}
+return source_leads_task.delay(query=query, user_id=user_id)  # fallback
+```
+
+## Phase 1 Status
+
+✅ **Done**:
+- Scaffolded `backend/app/agents/` with base types, llm_router, observability, retry stubs
+- Extended `backend/app/config.py` with Groq, Tavily, Qdrant, Sentry, and agent tuning settings
+- Updated `.env.example` with all new variables
+- Wired scheduler and webhook routes to agent entrypoints with safe fallbacks
+- All existing tests pass (25 passed)
+
+⏳ **Next** (Phases 2–11):
+- Phase 2: LLM router (Groq primary, OpenAI fallback, caching)
+- Phase 3: Lead Discovery agent (multi-source retrieval, Tavily signals, triangulation)
+- Phase 4: Lead Scorer agent (PRIME two-pass scoring)
+- Phase 5: Outreach agent (email generation, human approval gate)
+- Phase 6: Qdrant RAG infrastructure
+- Phase 7: Support and Reporting agents with ICP learning loop
+- Phase 8–11: Testing, CI/CD, Docker, and handoff
