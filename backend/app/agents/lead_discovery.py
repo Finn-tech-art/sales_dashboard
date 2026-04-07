@@ -565,6 +565,47 @@ async def _run_lead_discovery_sequential(user_id: int | None = None, query: str 
     state = await dedup_filter(state)
     await _save_checkpoint(run_uuid, "deduplicated", state)
 
+    # Node: Lead Scorer (PRIME two-pass)
+    try:
+        # Try agent-first compiled graph when available
+        from backend.app.agents.lead_scorer import build_scorer_graph
+
+        scorer_graph = await build_scorer_graph()
+        scorer_initial = {
+            "user_id": state.get("user_id"),
+            "icp_profile": state.get("icp_profile") or {},
+            "leads_to_score": state.get("deduplicated_leads") or [],
+            "scored_leads": [],
+            "critiqued_leads": [],
+            "errors": [],
+        }
+        scorer_result = await scorer_graph.ainvoke(scorer_initial)
+        new_leads = scorer_result.get("critiqued_leads") or scorer_result.get("scored_leads") or scorer_initial["leads_to_score"]
+        state["deduplicated_leads"] = new_leads
+    except Exception as exc:
+        # Fallback: call the scorer nodes directly
+        log.warning("scorer_graph_unavailable_fallback", error=str(exc))
+        try:
+            from backend.app.agents.lead_scorer import first_pass_scorer, self_critique_scorer
+
+            scorer_state = {
+                "user_id": state.get("user_id"),
+                "icp_profile": state.get("icp_profile") or {},
+                "leads_to_score": state.get("deduplicated_leads") or [],
+                "scored_leads": [],
+                "critiqued_leads": [],
+                "errors": [],
+            }
+            scorer_state = await first_pass_scorer(scorer_state)
+            scorer_state = await self_critique_scorer(scorer_state)
+            state["deduplicated_leads"] = scorer_state.get("critiqued_leads") or scorer_state.get("scored_leads") or state.get("deduplicated_leads")
+            state["errors"] = list(state.get("errors") or []) + list(scorer_state.get("errors") or [])
+        except Exception as e2:
+            log.error("scorer_nodes_failed", error=str(e2))
+            state["errors"] = list(state.get("errors") or []) + [f"scorer_failed: {str(e2)}"]
+
+    await _save_checkpoint(run_uuid, "scored", state)
+
     # Node: hubspot sync (chunked, persist after each successful chunk)
     state = await hubspot_sync(state)
     await _save_checkpoint(run_uuid, "hubspot_synced", state)
