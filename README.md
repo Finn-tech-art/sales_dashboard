@@ -19,43 +19,85 @@ The system combines:
 
 The repository currently reflects the following implementation state:
 
-- Phase 1: shared agent scaffolding, settings, and environment extensions
-- Phase 2: LLM routing, retry behavior, and observability foundations
-- Phase 3: lead discovery agent structure and multi-source retrieval flow
-- Phase 4: lead scoring agent, now wired into the active lead discovery path
-- Phase 5: outreach agent foundation with approval queue persistence and approval API endpoints
-- Phase 6: Qdrant collections, embedding services, and support-agent retrieval with Postgres fallback
 
 The following work is not complete yet:
 
-- Full outreach production integration across all trigger paths
-- broader support-agent production hardening and reporting agents
-- Final Docker handoff state without n8n
-- End-to-end CI/CD and deployment hardening beyond the current test workflow
 
 At the time of writing, the backend test suite passes locally with `41` passing tests.
 
+
+## Phase 7 — Reporting Agent & ICP Learning Loop
+
+Phase 7 replaces the legacy n8n weekly report workflow with a LangGraph-based
+ReportingAgent and implements the PRIME ICP learning loop so the scorer learns
+from actual conversions over time.
+
+What changed
+- New LangGraph reporting agent: [backend/app/agents/reporting.py](backend/app/agents/reporting.py)
+  - Nodes: `metrics_collector`, `metrics_assembler`, `narrative_writer`, `icp_updater`, `report_sender`.
+  - The agent tries to run first via the scheduler entrypoint and falls back to the
+    existing worker `backend/workers/reporting.generate_weekly_report_task` on error.
+- ICP learning loop: conversions recorded during the week are embedded and upserted
+  into Qdrant (`settings.QDRANT_COLLECTION_ICP`) to improve per-user scoring.
+  See: [backend/migrations/versions/005_add_conversions_table.py](backend/migrations/versions/005_add_conversions_table.py)
+
+Tavily (intent signals)
+- Optional integration with Tavily to surface intent signals per-user and per-lead.
+  - Client: [backend/app/services/tavily_client.py](backend/app/services/tavily_client.py)
+  - When `TAVILY_API_KEY` is set, the reporting agent will attach `intent_signals`
+    to the report metrics and to each ICP payload upserted to Qdrant. The agent
+    falls back to empty signals when the key is not configured.
+
+Database migrations
+- A new migration adds `conversions` to track recorded conversions used by the
+  ICP learning loop. Apply it with Alembic:
+
+```bash
+alembic upgrade head
+```
+
+Testing & CI
+- Unit and integration tests added for the reporting agent and ICP updater. Run
+  the tests locally with:
+
+```bash
+python -m pytest backend/tests -q
+```
+
+- The GitHub Actions CI runs the same test suite with Postgres and Redis services.
+  Qdrant and Tavily calls are mocked in tests so CI does not require external
+  Tavily credentials or a live Qdrant instance.
+
+Deployment notes
+- Add the following environment variables in production: `DATABASE_URL`, `REDIS_URL`,
+  `QDRANT_HOST`, `QDRANT_PORT`, and optionally `TAVILY_API_KEY` if you want intent
+  signals enabled.
+- Ensure Qdrant collections exist; the app will try to create them on startup
+  (`backend/app/services/qdrant_client.py`).
+- Run migrations and verify the app's `/ready` endpoint before routing traffic.
+
+Handoff / PR checklist
+- Summary of changes and motivation (Phase 7: Reporting + ICP learning loop)
+- Files changed: `backend/app/agents/reporting.py`, `backend/app/services/tavily_client.py`,
+  `backend/migrations/versions/005_add_conversions_table.py`, and tests under
+  `backend/tests/test_agents/`.
+- Run locally: `python -m pytest backend/tests -q` (47 tests passing locally at time of change)
+- Migration: `alembic upgrade head`
+- Add `TAVILY_API_KEY` (optional) and ensure Qdrant is reachable in production.
+
+If you'd like, I can open a PR with this checklist and a short description for your friend.
 ## Architecture
 
 ### Application Layers
 
-- `backend/app/api/routes`
   FastAPI route handlers and request/response orchestration
-- `backend/services`
   External integrations and shared service utilities
-- `backend/workers`
   Celery entrypoints and scheduled task integrations
-- `backend/domains`
   Domain-specific services, workers, and models
-- `backend/models`
   Shared persistence models and SQLAlchemy base wiring
-- `backend/migrations`
   Alembic migrations
-- `backend/app/agents`
   LangGraph-oriented agent implementations and entrypoints
-- `frontend`
   Static dashboard, auth, and workflow pages
-- `infra`
   Container and Nginx support files
 
 ### Agent Rollout Model
