@@ -75,7 +75,7 @@ class Settings(BaseSettings):
 
     HUBSPOT_BASE_URL: str = "https://api.hubapi.com"
     CHATWOOT_BASE_URL: str = "https://app.chatwoot.com/api/v1"
-    N8N_WEBHOOK_BASE: str = "http://localhost:5678/webhook"
+    # N8N_WEBHOOK_BASE removed — n8n deprecated in favor of LangGraph agents
     SOCIAL_TRENDS_WEBHOOK_PATH: str = "social/trends"
     SOCIAL_PUBLISH_WEBHOOK_PATH: str = "social/publish"
     SOCIAL_ANALYTICS_WEBHOOK_PATH: str = "social/analytics"

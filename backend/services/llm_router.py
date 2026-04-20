@@ -27,18 +27,20 @@ from backend.app.core.retry import with_retry, circuit_breaker
 settings = get_settings()
 log = get_logger(__name__)
 
-# Task → model mapping.
-# score_fast: cheap + fast for bulk scoring (up to 500 leads/day)
-# score_critic: used only on top 20% of leads after first-pass scoring
-# email_draft, support_reply, report: fast model is sufficient
-TASK_MODEL_MAP: dict[str, str] = {
-    "score_fast":     settings.GROQ_MODEL_FAST,
-    "score_critic":   settings.GROQ_MODEL_LARGE,
-    "email_draft":    settings.GROQ_MODEL_FAST,
-    "email_critique": settings.GROQ_MODEL_FAST,
-    "support_reply":  settings.GROQ_MODEL_FAST,
-    "report_summary": settings.GROQ_MODEL_FAST,
-    "icp_analysis":   settings.GROQ_MODEL_FAST,
+# Task → LLM provider mapping.
+# Groq (fast/cheap): bulk scoring, drafting, summaries
+# OpenAI (reasoning): critique, self-evaluation, complex reasoning
+TASK_PROVIDER_MAP: dict[str, str] = {
+    # Fast tasks → Groq (cheap, fast inference)
+    "score_fast":     "groq",      # Bulk lead scoring
+    "email_draft":    "groq",      # Email body generation
+    "support_reply":  "groq",      # Support response drafting
+    "report_summary": "groq",      # Weekly report narrative
+    "icp_analysis":   "groq",      # Cold-start ICP synthesis
+    
+    # Reasoning/Critique tasks → OpenAI (better reasoning)
+    "score_critic":   "openai",    # Lead score critique & adjustment
+    "email_critique": "openai",    # Email quality critique & refinement
 }
 
 
@@ -68,32 +70,17 @@ async def call_llm(
         except Exception:
             log.exception("redis_cache_check_failed")
 
-    # 3. Attempt Groq (primary)
+    # 3. Determine provider based on task type
     messages = []
     if system:
         messages.append(SystemMessage(content=system))
     messages.append(HumanMessage(content=prompt))
 
-    model_name = TASK_MODEL_MAP.get(task, settings.GROQ_MODEL_FAST)
-
-    try:
-        # Wrap Groq invocation with retries + circuit breaker
-        @with_retry(service="groq")
-        async def _invoke_groq(msgs):
-            groq = ChatGroq(
-                model=model_name,
-                api_key=settings.GROQ_API_KEY,
-                max_tokens=settings.LLM_MAX_TOKENS_PER_NODE,
-            )
-            return await groq.ainvoke(msgs)
-
-        result = await _invoke_groq(messages)
-        text = result.content
-        log.info("llm_groq_success", task=task, model=model_name, tokens=len(prompt.split()))
-
-    except Exception as groq_err:
-        # 4. Groq failed (rate limit, network, etc.) — fall back to OpenAI
-        log.warning("llm_groq_failed_fallback", task=task, error=str(groq_err))
+    provider = TASK_PROVIDER_MAP.get(task, "groq")
+    
+    # 4. Try primary provider first
+    if provider == "openai":
+        # Critique & reasoning → OpenAI (better for complex reasoning)
         try:
             @with_retry(service="openai")
             async def _invoke_openai(msgs):
@@ -103,13 +90,63 @@ async def call_llm(
                     max_tokens=settings.LLM_MAX_TOKENS_PER_NODE,
                 )
                 return await oai.ainvoke(msgs)
-
+            
             result = await _invoke_openai(messages)
             text = result.content
-            log.info("llm_openai_fallback_success", task=task)
+            log.info("llm_openai_success", task=task, model="gpt-4o-mini")
         except Exception as oai_err:
-            log.error("llm_all_providers_failed", groq_err=str(groq_err), oai_err=str(oai_err))
-            raise RuntimeError(f"All LLM providers failed: {groq_err} | {oai_err}")
+            log.warning("llm_openai_failed_fallback", task=task, error=str(oai_err))
+            # OpenAI failed → fallback to Groq for critique
+            try:
+                @with_retry(service="groq")
+                async def _invoke_groq_fallback(msgs):
+                    groq = ChatGroq(
+                        model=settings.GROQ_MODEL_LARGE,
+                        api_key=settings.GROQ_API_KEY,
+                        max_tokens=settings.LLM_MAX_TOKENS_PER_NODE,
+                    )
+                    return await groq.ainvoke(msgs)
+                
+                result = await _invoke_groq_fallback(messages)
+                text = result.content
+                log.info("llm_groq_fallback_success", task=task)
+            except Exception as groq_err:
+                log.error("llm_all_providers_failed", openai_err=str(oai_err), groq_err=str(groq_err))
+                raise RuntimeError(f"All LLM providers failed: OpenAI: {oai_err} | Groq: {groq_err}")
+    else:
+        # Fast tasks → Groq (cheap, fast)
+        try:
+            @with_retry(service="groq")
+            async def _invoke_groq(msgs):
+                groq = ChatGroq(
+                    model=settings.GROQ_MODEL_FAST,
+                    api_key=settings.GROQ_API_KEY,
+                    max_tokens=settings.LLM_MAX_TOKENS_PER_NODE,
+                )
+                return await groq.ainvoke(msgs)
+            
+            result = await _invoke_groq(messages)
+            text = result.content
+            log.info("llm_groq_success", task=task, model=settings.GROQ_MODEL_FAST)
+        except Exception as groq_err:
+            log.warning("llm_groq_failed_fallback", task=task, error=str(groq_err))
+            # Groq failed → fallback to OpenAI
+            try:
+                @with_retry(service="openai")
+                async def _invoke_openai_fallback(msgs):
+                    oai = ChatOpenAI(
+                        model=getattr(settings, "OPENAI_MODEL", "gpt-4o-mini"),
+                        api_key=settings.OPENAI_API_KEY,
+                        max_tokens=settings.LLM_MAX_TOKENS_PER_NODE,
+                    )
+                    return await oai.ainvoke(msgs)
+                
+                result = await _invoke_openai_fallback(messages)
+                text = result.content
+                log.info("llm_openai_fallback_success", task=task)
+            except Exception as oai_err:
+                log.error("llm_all_providers_failed", groq_err=str(groq_err), openai_err=str(oai_err))
+                raise RuntimeError(f"All LLM providers failed: Groq: {groq_err} | OpenAI: {oai_err}")
 
     # 5. Write to cache
     if redis_client:
