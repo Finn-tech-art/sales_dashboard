@@ -631,7 +631,6 @@ async def _run_lead_discovery_sequential(user_id: int | None = None, query: str 
     state = await hubspot_sync(state)
     await _save_checkpoint(run_uuid, "hubspot_synced", state)
 
-    # Additional nodes (scoring) are left as TODO
 
     await _save_checkpoint(run_uuid, "finished", state)
     return {"success": True, "run_id": run_uuid, "state": state}
